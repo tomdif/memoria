@@ -363,7 +363,7 @@ class Retriever:
 
         stage1 = {}
         for i, sid in enumerate(session_ids):
-            stage1[sid] = vec_scores.get(sid, 0.0) * 0.85 + float(bm25_norm[i]) * 0.15
+            stage1[sid] = vec_scores.get(sid, 0.0) * 0.70 + float(bm25_norm[i]) * 0.30
 
         # Stage 2: cross-encoder rerank
         cands = sorted(stage1.items(), key=lambda x: x[1], reverse=True)[:rerank_k]

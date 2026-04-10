@@ -21,11 +21,11 @@ Query → Bi-encoder + BM25 → Cross-encoder rerank → Ranked results
 
 **Three retrieval modes** to trade speed for accuracy:
 
-| Mode | R@5 | R@10 | NDCG@10 | Throughput |
-|------|-----|------|---------|------------|
-| `speed` | 94.0% | 97.4% | 0.9428 | 15.3 q/s |
-| `balanced` | 94.6% | 97.0% | 0.9557 | 11.0 q/s |
-| `quality` | 95.0% | 97.6% | 0.9570 | 9.4 q/s |
+| Mode | LongMemEval R@5 | LoCoMo R@5 | Throughput |
+|------|----------------|-----------|------------|
+| `speed` | 94.0% | 63.2% | 15+ q/s |
+| `balanced` | 93.6% | 63.2% | 11+ q/s |
+| `quality` | 95.0% | 63.2% | 5+ q/s |
 
 All benchmarks on Apple Silicon (M-series), single-threaded, no GPU.
 
@@ -35,13 +35,13 @@ All benchmarks on Apple Silicon (M-series), single-threaded, no GPU.
 
 The [LongMemEval](https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned) benchmark tests retrieval across ~53 conversation sessions per question, covering six categories of conversational memory.
 
-**Overall results (quality mode):**
+**Overall results (balanced mode, 30% BM25 fusion):**
 
 | Metric | Score |
 |--------|-------|
-| Recall@5 | **95.2%** |
-| Recall@10 | **97.8%** |
-| NDCG@10 | **0.9584** |
+| Recall@5 | **93.6%** |
+| Recall@10 | **97.0%** |
+| NDCG@10 | **0.9557** |
 
 **Breakdown by question type:**
 
@@ -72,23 +72,22 @@ Theoretical ceiling: 99.4% R@5 (3 questions require >5 answer sessions).
 
 The [LoCoMo](https://github.com/snap-research/locomo) benchmark tests multi-hop reasoning across 10 long conversations (19-32 sessions each, 400-600 dialog turns). This is a significantly harder benchmark — questions require finding evidence scattered across multiple sessions in much longer conversation histories.
 
-**Overall results (balanced mode):**
+**Overall results (balanced mode, 30% BM25 fusion):**
 
 | Metric | Score |
 |--------|-------|
-| Recall@5 | **53.6%** |
-| Recall@10 | **71.1%** |
-| NDCG@10 | **0.5290** |
+| Recall@5 | **63.2%** |
+| Recall@10 | **80.2%** |
 
 **Breakdown by category:**
 
-| Category | R@5 | R@10 | NDCG@10 | n |
-|----------|-----|------|---------|---|
-| Single-fact temporal | 70.4% | 80.7% | 0.607 | 321 |
-| Open-ended | 60.1% | 78.7% | 0.517 | 446 |
-| Multi-fact temporal | 57.1% | 77.2% | 0.494 | 841 |
-| Multi-fact | 28.3% | 46.7% | 0.406 | 92 |
-| Single-fact | 22.0% | 37.9% | 0.602 | 282 |
+| Category | R@5 | R@10 | n |
+|----------|-----|------|---|
+| Single-fact temporal | 77.3% | 88.2% | 321 |
+| Open-ended | 71.5% | 89.7% | 446 |
+| Multi-fact temporal | 69.3% | 87.6% | 841 |
+| Multi-fact | 38.0% | 53.3% | 92 |
+| Single-fact | 23.8% | 42.9% | 282 |
 
 LoCoMo's single-fact questions are adversarially hard — they require finding one specific line in a 20+ session conversation. Temporal questions are easier because date context narrows the search space.
 
