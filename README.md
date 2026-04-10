@@ -68,17 +68,43 @@ The [LongMemEval](https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned
 
 Theoretical ceiling: 99.4% R@5 (3 questions require >5 answer sessions).
 
+### LoCoMo (1,982 questions)
+
+The [LoCoMo](https://github.com/snap-research/locomo) benchmark tests multi-hop reasoning across 10 long conversations (19-32 sessions each, 400-600 dialog turns). This is a significantly harder benchmark — questions require finding evidence scattered across multiple sessions in much longer conversation histories.
+
+**Overall results (balanced mode):**
+
+| Metric | Score |
+|--------|-------|
+| Recall@5 | **53.6%** |
+| Recall@10 | **71.1%** |
+| NDCG@10 | **0.5290** |
+
+**Breakdown by category:**
+
+| Category | R@5 | R@10 | NDCG@10 | n |
+|----------|-----|------|---------|---|
+| Single-fact temporal | 70.4% | 80.7% | 0.607 | 321 |
+| Open-ended | 60.1% | 78.7% | 0.517 | 446 |
+| Multi-fact temporal | 57.1% | 77.2% | 0.494 | 841 |
+| Multi-fact | 28.3% | 46.7% | 0.406 | 92 |
+| Single-fact | 22.0% | 37.9% | 0.602 | 282 |
+
+LoCoMo's single-fact questions are adversarially hard — they require finding one specific line in a 20+ session conversation. Temporal questions are easier because date context narrows the search space.
+
 ### Reproducing benchmarks
 
 ```bash
-# Download data
 cd benchmarks
-python download_data.py
 
-# Run LongMemEval (all 500 questions, ~2-5 min depending on mode)
+# LongMemEval (500 questions, ~2-5 min depending on mode)
+python download_data.py
 python longmemeval_final.py
 
-# Run head-to-head comparison
+# LoCoMo (1,982 questions, ~2 min)
+python locomo_bench.py
+
+# Full head-to-head comparison
 python headtohead_bench.py --max 500
 ```
 
