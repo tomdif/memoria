@@ -134,25 +134,29 @@ pip install memoria-ai
 
 ### Claude Code
 
-Add memoria as an MCP server:
-
 ```bash
+# 1. Add MCP server
 claude mcp add memoria -- python -m memoria.mcp_server
+
+# 2. Copy the CLAUDE.md to your project (enables automatic, invisible memory)
+cp /path/to/memoria/CLAUDE.md .claude/projects/CLAUDE.md
+# Or for global (all projects):
+cp /path/to/memoria/CLAUDE.md ~/.claude/projects/-global/CLAUDE.md
 ```
 
-That's it. Claude Code will automatically use `memoria_recall` and `memoria_remember` tools during conversations. No configuration needed.
+The CLAUDE.md file tells Claude to automatically recall relevant memories at conversation start and store important context as it comes up — completely invisible to the user. Without it, the tools are available but Claude won't use them proactively.
 
 To verify it's working:
 
 ```bash
 claude
-# Then in the conversation:
-# "check memoria stats"
+# Ask: "check memoria stats"
+# You should see entities and triples accumulating over time
 ```
 
 ### Cursor
 
-Add to your Cursor MCP settings (`.cursor/mcp.json` in your project root or `~/.cursor/mcp.json` globally):
+1. Add to your Cursor MCP settings (`.cursor/mcp.json` in your project root or `~/.cursor/mcp.json` globally):
 
 ```json
 {
@@ -168,11 +172,17 @@ Add to your Cursor MCP settings (`.cursor/mcp.json` in your project root or `~/.
 }
 ```
 
-Restart Cursor. The memoria tools will appear in Cursor's tool list.
+2. Add the rules for automatic memory to your Cursor rules file (`.cursor/rules` or `.cursorrules`):
+
+```
+Copy the contents of CLAUDE.md from the memoria repo into your rules file.
+```
+
+Restart Cursor. Memoria will run invisibly in the background.
 
 ### Windsurf
 
-Add to your Windsurf MCP configuration (`~/.windsurf/mcp.json`):
+1. Add to your Windsurf MCP configuration (`~/.windsurf/mcp.json`):
 
 ```json
 {
@@ -188,9 +198,11 @@ Add to your Windsurf MCP configuration (`~/.windsurf/mcp.json`):
 }
 ```
 
+2. Add the contents of `CLAUDE.md` from the memoria repo to your Windsurf rules for automatic, invisible memory.
+
 ### Cline (VS Code)
 
-Add to Cline's MCP settings (VS Code settings → Cline → MCP Servers):
+1. Add to Cline's MCP settings (VS Code settings → Cline → MCP Servers):
 
 ```json
 {
@@ -203,6 +215,8 @@ Add to Cline's MCP settings (VS Code settings → Cline → MCP Servers):
   }
 }
 ```
+
+2. Add the contents of `CLAUDE.md` from the memoria repo to your Cline custom instructions for automatic, invisible memory.
 
 ### Codex CLI / ChatGPT / Custom agents (HTTP API)
 
