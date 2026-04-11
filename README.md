@@ -281,6 +281,17 @@ memoria stats
 
 # Compress memory to fit a token budget
 memoria compress --budget 500
+
+# Clean up: list, delete, merge, find issues
+memoria cleanup list-entities
+memoria cleanup list-triples
+memoria cleanup find-duplicates
+memoria cleanup find-orphans
+memoria cleanup purge-orphans
+memoria cleanup purge-expired
+memoria cleanup delete-entity --name "old entity"
+memoria cleanup delete-triple --id "triple-uuid"
+memoria cleanup merge --name "duplicate" --into "canonical"
 ```
 
 ### Environment variables
@@ -324,6 +335,7 @@ memoria compress --budget 500
 - **Local-first**: Everything runs on your machine. No cloud, no API calls for core functionality
 - **Single SQLite file**: The entire memory state is one file (`~/.memoria/memoria.db`). Back it up, move it, share it
 - **Spectral consolidation**: Uses the spectral gap of the knowledge graph to determine search depth and prune low-importance memories
+- **Self-cleansing**: Every `consolidate()` call automatically removes self-referencing triples, deduplicates identical facts, merges exact-name duplicate entities, removes orphan entities, and purges expired data — no manual cleanup needed
 - **Embedding cache**: Session embeddings are cached by content hash, so repeated queries over the same corpus hit memory instead of re-encoding
 
 ## MCP Tools
@@ -336,10 +348,11 @@ When connected via MCP, memoria exposes these tools:
 | `memoria_recall` | Retrieve relevant memories (with mode: speed/balanced/quality) |
 | `memoria_entity` | Get everything known about an entity |
 | `memoria_history` | Temporal history of an entity-predicate pair |
-| `memoria_consolidate` | Run memory consolidation |
+| `memoria_consolidate` | Run memory consolidation (includes automatic self-cleansing) |
 | `memoria_stats` | System statistics (entity/triple counts, spectral gap) |
 | `memoria_compress` | Compress memory to a token budget using spectral ranking |
 | `memoria_budget_report` | Preview compression at each tier (L0/L1/L2/L3) |
+| `memoria_cleanup` | Clean up the knowledge graph (delete, merge, deduplicate, purge) |
 
 ## License
 

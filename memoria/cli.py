@@ -90,10 +90,30 @@ def main():
     # serve
     sub.add_parser("serve", help="Start MCP server (stdio)")
 
+    # export
+    p_export = sub.add_parser("export", help="Export memory as portable context for Codex/remote agents")
+    p_export.add_argument("-o", "--output", default=None,
+                          help="Output file path (default: MEMORIA_CONTEXT.md in current dir)")
+    p_export.add_argument("-b", "--budget", type=int, default=4000,
+                          help="Token budget for export (default: 4000)")
+    p_export.add_argument("--format", choices=["markdown", "json"], default="markdown",
+                          help="Export format (default: markdown)")
+
     # serve-http
     p_http = sub.add_parser("serve-http", help="Start HTTP REST API server")
     p_http.add_argument("--port", type=int, default=7437, help="Port (default: 7437)")
     p_http.add_argument("--host", default="127.0.0.1", help="Host (default: 127.0.0.1)")
+
+    # cleanup
+    p_clean = sub.add_parser("cleanup", help="Clean up the knowledge graph")
+    p_clean.add_argument("action",
+                         choices=["list-entities", "list-triples", "delete-entity",
+                                  "delete-triple", "merge", "find-duplicates",
+                                  "find-orphans", "purge-orphans", "purge-expired"],
+                         help="Cleanup action")
+    p_clean.add_argument("--name", default=None, help="Entity name (for delete-entity, merge source)")
+    p_clean.add_argument("--id", default=None, help="Entity or triple ID")
+    p_clean.add_argument("--into", default=None, help="Target entity name for merge")
 
     # ingest (batch)
     p_ingest = sub.add_parser("ingest", help="Ingest a text file or directory")
@@ -175,6 +195,96 @@ def main():
                 print(f"  Entities: {info['entities_included']}/{info['entities_total']} ({info['compression_ratio']:.1%})")
                 print(f"  Tokens: ~{info['token_estimate']}")
                 print(f"  Preview: {info['preview']}")
+
+        elif args.command == "cleanup":
+            action_map = {
+                "list-entities": "list_entities",
+                "list-triples": "list_triples",
+                "delete-entity": "delete_entity",
+                "delete-triple": "delete_triple",
+                "merge": "merge_entities",
+                "find-duplicates": "find_duplicates",
+                "find-orphans": "find_orphans",
+                "purge-orphans": "purge_orphans",
+                "purge-expired": "purge_expired",
+            }
+            result = m.cleanup(
+                action=action_map[args.action],
+                entity_name=args.name,
+                entity_id=args.id,
+                triple_id=args.id,
+                merge_into=args.into,
+            )
+            if "error" in result:
+                print(f"Error: {result['error']}", file=sys.stderr)
+                if "candidates" in result:
+                    for c in result["candidates"]:
+                        print(f"  {c['id'][:12]}  {c['name']}")
+            elif args.action == "list-entities":
+                for e in result["entities"]:
+                    print(f"  {e['name']:45s} triples={e['active_triples']}  conf={e['confidence']}")
+                print(f"  ({result['count']} total)")
+            elif args.action == "list-triples":
+                for t in result["triples"]:
+                    print(f"  {t['subject']:30s} --{t['predicate']:25s}--> {t['object']}")
+                print(f"  ({result['count']} total)")
+            elif args.action == "find-duplicates":
+                for d in result["duplicates"]:
+                    print(f"  {d[0]['name']!r} <-> {d[1]['name']!r}")
+                print(f"  ({result['count']} duplicate pairs)")
+            elif args.action == "find-orphans":
+                for o in result["orphans"]:
+                    print(f"  {o['name']:45s} conf={o['confidence']:.3f}")
+                print(f"  ({result['count']} orphans)")
+            else:
+                print(json.dumps(result, indent=2, default=str))
+
+        elif args.command == "export":
+            from pathlib import Path
+            import time as _time
+
+            # Get full L3 compression for the export
+            result = m.compress(budget_tokens=args.budget)
+
+            if args.format == "json":
+                # Structured export with metadata
+                export_data = {
+                    "exported_at": _time.strftime("%Y-%m-%dT%H:%M:%SZ", _time.gmtime()),
+                    "tier": result.tier,
+                    "token_estimate": result.token_estimate,
+                    "entities_included": result.entities_included,
+                    "entities_total": result.entities_total,
+                    "compression_ratio": result.compression_ratio,
+                    "content": result.text,
+                }
+                output_text = json.dumps(export_data, indent=2)
+                default_name = "MEMORIA_CONTEXT.json"
+            else:
+                # Markdown export — ready to drop into CLAUDE.md or Codex context
+                lines = [
+                    "# Memoria Context (Portable Memory Export)",
+                    "",
+                    f"*Exported: {_time.strftime('%Y-%m-%d %H:%M UTC', _time.gmtime())}*  ",
+                    f"*Entities: {result.entities_included}/{result.entities_total} "
+                    f"| Tokens: ~{result.token_estimate} | Tier: {result.tier}*",
+                    "",
+                    "---",
+                    "",
+                    result.text,
+                    "",
+                    "---",
+                    "*Generated by `memoria export`. This is a compressed snapshot of the "
+                    "full knowledge graph — use it as context for remote/async agents.*",
+                ]
+                output_text = "\n".join(lines)
+                default_name = "MEMORIA_CONTEXT.md"
+
+            out_path = Path(args.output) if args.output else Path.cwd() / default_name
+            out_path.write_text(output_text)
+            print(f"Exported to {out_path}")
+            print(f"  Tier: {result.tier}")
+            print(f"  Tokens: ~{result.token_estimate} (budget: {args.budget})")
+            print(f"  Entities: {result.entities_included}/{result.entities_total}")
 
         elif args.command == "ingest":
             from pathlib import Path

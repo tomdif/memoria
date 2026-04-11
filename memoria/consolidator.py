@@ -49,8 +49,19 @@ class Consolidator:
             "decayed": 0,
             "pruned": 0,
             "clusters_found": 0,
+            "self_refs_removed": 0,
+            "duplicates_merged": 0,
+            "orphans_removed": 0,
+            "expired_purged": 0,
             "timestamp": time.time(),
         }
+
+        # Phase 0: Self-cleanse (dedup, remove garbage)
+        cleanse = self._self_cleanse()
+        stats["self_refs_removed"] = cleanse["self_refs"]
+        stats["duplicates_merged"] = cleanse["duplicates"]
+        stats["orphans_removed"] = cleanse["orphans"]
+        stats["expired_purged"] = cleanse["expired"]
 
         # Phase 1: Merge repeated facts
         stats["merged"] = self._merge_repeated()
@@ -72,6 +83,69 @@ class Consolidator:
         self.kg.db.commit()
 
         return stats
+
+    def _self_cleanse(self) -> dict:
+        """Automatic self-cleansing: fix structural issues in the graph.
+
+        1. Remove self-referencing triples (entity -> relation -> same entity)
+        2. Deduplicate identical triples (same subject, predicate, object)
+        3. Merge exact-name duplicate entities
+        4. Remove orphan entities (no active triples)
+        5. Hard-delete expired (soft-deleted) triples
+        """
+        result = {"self_refs": 0, "duplicates": 0, "orphans": 0, "expired": 0}
+
+        # 1. Remove self-referencing triples
+        r = self.kg.db.execute(
+            """DELETE FROM triples
+               WHERE object_id IS NOT NULL
+                 AND subject_id = object_id
+                 AND valid_until IS NULL"""
+        )
+        result["self_refs"] = r.rowcount
+
+        # 2. Deduplicate identical active triples (keep the one with highest confidence)
+        dupes = self.kg.db.execute(
+            """SELECT GROUP_CONCAT(id), COUNT(*) as cnt,
+                      subject_id, predicate, COALESCE(object_id, ''), COALESCE(object_value, '')
+               FROM triples
+               WHERE valid_until IS NULL
+               GROUP BY subject_id, predicate, COALESCE(object_id, ''), COALESCE(object_value, '')
+               HAVING cnt > 1"""
+        ).fetchall()
+        for row in dupes:
+            ids = row[0].split(",")
+            # Keep the first (highest confidence due to ORDER BY), delete rest
+            keep_id = ids[0]
+            for dup_id in ids[1:]:
+                self.kg.db.execute("DELETE FROM triples WHERE id = ?", (dup_id,))
+                result["duplicates"] += 1
+
+        # 3. Merge exact-name duplicate entities
+        name_dupes = self.kg.db.execute(
+            """SELECT LOWER(name) as lname, GROUP_CONCAT(id), COUNT(*) as cnt
+               FROM entities
+               GROUP BY lname
+               HAVING cnt > 1"""
+        ).fetchall()
+        for row in name_dupes:
+            ids = row[1].split(",")
+            keep_id = ids[0]
+            for merge_id in ids[1:]:
+                self.kg.merge_entities(keep_id, merge_id)
+                result["duplicates"] += 1
+
+        # 4. Remove orphan entities
+        orphans = self.kg.find_orphan_entities()
+        for o in orphans:
+            self.kg.delete_entity(o["id"])
+        result["orphans"] = len(orphans)
+
+        # 5. Purge expired triples
+        result["expired"] = self.kg.purge_expired()
+
+        self.kg.db.commit()
+        return result
 
     def _merge_repeated(self) -> int:
         """Promote facts that appear in 3+ sources to high confidence."""

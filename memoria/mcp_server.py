@@ -19,12 +19,33 @@ from .core import Memoria
 _memoria: Memoria | None = None
 
 
+def _make_llm_call():
+    """Create an LLM call function using the Anthropic SDK for entity extraction."""
+    try:
+        import anthropic
+        client = anthropic.Anthropic()
+
+        def call(prompt: str) -> str:
+            response = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=2048,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return response.content[0].text
+
+        return call
+    except (ImportError, Exception):
+        return None
+
+
 def get_memoria() -> Memoria:
     global _memoria
     if _memoria is None:
         db_path = os.environ.get("MEMORIA_DB", "~/.memoria/memoria.db")
         model = os.environ.get("MEMORIA_MODEL", "all-MiniLM-L6-v2")
-        _memoria = Memoria(db_path=db_path, model_name=model)
+        use_llm = os.environ.get("MEMORIA_NO_LLM", "").lower() not in ("1", "true", "yes")
+        llm_call = _make_llm_call() if use_llm else None
+        _memoria = Memoria(db_path=db_path, model_name=model, llm_call=llm_call)
     return _memoria
 
 
@@ -133,6 +154,42 @@ TOOLS = [
             "properties": {},
         },
     },
+    {
+        "name": "memoria_cleanup",
+        "description": "Clean up the knowledge graph: list/delete entities and triples, "
+                       "merge duplicates, find orphans, purge expired data. "
+                       "Actions: list_entities, list_triples, delete_entity, delete_triple, "
+                       "merge_entities, find_duplicates, find_orphans, purge_orphans, purge_expired.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["list_entities", "list_triples", "delete_entity",
+                             "delete_triple", "merge_entities", "find_duplicates",
+                             "find_orphans", "purge_orphans", "purge_expired"],
+                    "description": "The cleanup action to perform",
+                },
+                "entity_name": {
+                    "type": "string",
+                    "description": "Entity name (for delete_entity, merge_entities source)",
+                },
+                "entity_id": {
+                    "type": "string",
+                    "description": "Entity ID (for delete_entity by ID)",
+                },
+                "triple_id": {
+                    "type": "string",
+                    "description": "Triple ID (for delete_triple)",
+                },
+                "merge_into": {
+                    "type": "string",
+                    "description": "Target entity name to merge into (for merge_entities)",
+                },
+            },
+            "required": ["action"],
+        },
+    },
 ]
 
 
@@ -190,6 +247,16 @@ def handle_tool(name: str, arguments: dict[str, Any]) -> dict:
 
     elif name == "memoria_budget_report":
         return m.budget_report()
+
+    elif name == "memoria_cleanup":
+        result = m.cleanup(
+            action=arguments["action"],
+            entity_name=arguments.get("entity_name"),
+            entity_id=arguments.get("entity_id"),
+            triple_id=arguments.get("triple_id"),
+            merge_into=arguments.get("merge_into"),
+        )
+        return result
 
     else:
         return {"error": f"Unknown tool: {name}"}

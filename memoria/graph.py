@@ -308,6 +308,129 @@ class KnowledgeGraph:
         edge_triples = [t for t in triples if t["object_id"] is not None]
         return edge_triples, entity_index
 
+    def delete_entity(self, entity_id: str) -> int:
+        """Delete an entity and all its triples (both as subject and object). Returns count of deleted triples."""
+        # Delete triples where this entity is subject or object
+        c1 = self.db.execute(
+            "DELETE FROM triples WHERE subject_id = ?", (entity_id,)
+        ).rowcount
+        c2 = self.db.execute(
+            "DELETE FROM triples WHERE object_id = ?", (entity_id,)
+        ).rowcount
+        # Delete the entity itself
+        self.db.execute("DELETE FROM entities WHERE id = ?", (entity_id,))
+        self.db.commit()
+        return c1 + c2
+
+    def delete_triple(self, triple_id: str) -> bool:
+        """Hard-delete a specific triple. Returns True if found."""
+        result = self.db.execute(
+            "DELETE FROM triples WHERE id = ?", (triple_id,)
+        )
+        self.db.commit()
+        return result.rowcount > 0
+
+    def merge_entities(self, keep_id: str, merge_id: str) -> int:
+        """Merge merge_id into keep_id: reassign all triples, then delete merge_id.
+        Returns number of triples reassigned."""
+        reassigned = 0
+        # Reassign triples where merge_id is subject
+        r1 = self.db.execute(
+            "UPDATE triples SET subject_id = ? WHERE subject_id = ?",
+            (keep_id, merge_id),
+        )
+        reassigned += r1.rowcount
+        # Reassign triples where merge_id is object
+        r2 = self.db.execute(
+            "UPDATE triples SET object_id = ? WHERE object_id = ?",
+            (keep_id, merge_id),
+        )
+        reassigned += r2.rowcount
+        # Delete the merged entity
+        self.db.execute("DELETE FROM entities WHERE id = ?", (merge_id,))
+        self.db.commit()
+        return reassigned
+
+    def list_entities(self, limit: int = 100) -> list[dict]:
+        """List all entities with their triple counts."""
+        rows = self.db.execute(
+            """SELECT e.id, e.name, e.entity_type, e.confidence, e.created_at,
+                      e.access_count,
+                      (SELECT COUNT(*) FROM triples t
+                       WHERE (t.subject_id = e.id OR t.object_id = e.id)
+                         AND t.valid_until IS NULL) as active_triples
+               FROM entities e
+               ORDER BY active_triples DESC, e.confidence DESC
+               LIMIT ?""",
+            (limit,),
+        ).fetchall()
+        return [
+            {"id": r[0], "name": r[1], "type": r[2], "confidence": round(r[3], 3),
+             "created_at": r[4], "access_count": r[5], "active_triples": r[6]}
+            for r in rows
+        ]
+
+    def list_triples_enriched(self, limit: int = 100) -> list[dict]:
+        """List all active triples with resolved entity names."""
+        rows = self.db.execute(
+            """SELECT t.id, e1.name as subj, t.predicate,
+                      COALESCE(e2.name, t.object_value) as obj,
+                      t.confidence, t.created_at, t.relation_type
+               FROM triples t
+               JOIN entities e1 ON t.subject_id = e1.id
+               LEFT JOIN entities e2 ON t.object_id = e2.id
+               WHERE t.valid_until IS NULL
+               ORDER BY t.confidence DESC, t.created_at DESC
+               LIMIT ?""",
+            (limit,),
+        ).fetchall()
+        return [
+            {"id": r[0], "subject": r[1], "predicate": r[2], "object": r[3],
+             "confidence": round(r[4], 3), "created_at": r[5], "type": r[6]}
+            for r in rows
+        ]
+
+    def find_orphan_entities(self) -> list[dict]:
+        """Find entities with zero active triples (neither subject nor object)."""
+        rows = self.db.execute(
+            """SELECT e.id, e.name, e.entity_type, e.confidence
+               FROM entities e
+               WHERE NOT EXISTS (
+                   SELECT 1 FROM triples t
+                   WHERE (t.subject_id = e.id OR t.object_id = e.id)
+                     AND t.valid_until IS NULL
+               )
+               ORDER BY e.name"""
+        ).fetchall()
+        return [{"id": r[0], "name": r[1], "type": r[2], "confidence": r[3]} for r in rows]
+
+    def find_duplicate_entities(self) -> list[list[dict]]:
+        """Find entities with similar names (case-insensitive, prefix overlap)."""
+        rows = self.db.execute(
+            """SELECT e1.id, e1.name, e2.id, e2.name
+               FROM entities e1
+               JOIN entities e2 ON e1.id < e2.id
+               WHERE LOWER(e1.name) = LOWER(e2.name)
+                  OR LOWER(e1.name) LIKE LOWER(e2.name) || '%'
+                  OR LOWER(e2.name) LIKE LOWER(e1.name) || '%'
+               ORDER BY e1.name"""
+        ).fetchall()
+        groups = []
+        for r in rows:
+            groups.append([
+                {"id": r[0], "name": r[1]},
+                {"id": r[2], "name": r[3]},
+            ])
+        return groups
+
+    def purge_expired(self) -> int:
+        """Hard-delete all soft-deleted triples (valid_until IS NOT NULL)."""
+        result = self.db.execute(
+            "DELETE FROM triples WHERE valid_until IS NOT NULL"
+        )
+        self.db.commit()
+        return result.rowcount
+
     def triple_count(self) -> int:
         return self.db.execute("SELECT COUNT(*) FROM triples").fetchone()[0]
 

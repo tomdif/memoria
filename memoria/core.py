@@ -220,6 +220,108 @@ class Memoria:
 
         return {"entities": unique_entities, "facts": facts, "causal": [], "decisions": []}
 
+    def cleanup(
+        self,
+        action: str,
+        entity_name: str | None = None,
+        entity_id: str | None = None,
+        triple_id: str | None = None,
+        merge_into: str | None = None,
+    ) -> dict:
+        """Clean up the knowledge graph.
+
+        Actions:
+          - "list_entities": Show all entities with triple counts
+          - "list_triples": Show all active triples with resolved names
+          - "delete_entity": Delete entity by name or ID and all its triples
+          - "delete_triple": Delete a specific triple by ID
+          - "merge_entities": Merge entity_name into merge_into (keeps merge_into)
+          - "find_duplicates": Find entities with similar/identical names
+          - "find_orphans": Find entities with no active triples
+          - "purge_orphans": Delete all orphan entities
+          - "purge_expired": Hard-delete all soft-deleted (expired) triples
+        """
+        if action == "list_entities":
+            entities = self.kg.list_entities()
+            return {"entities": entities, "count": len(entities)}
+
+        elif action == "list_triples":
+            triples = self.kg.list_triples_enriched()
+            return {"triples": triples, "count": len(triples)}
+
+        elif action == "delete_entity":
+            if entity_id:
+                deleted = self.kg.delete_entity(entity_id)
+                return {"deleted_triples": deleted, "entity_id": entity_id}
+            elif entity_name:
+                entities = self.kg.find_entities(entity_name)
+                if not entities:
+                    return {"error": f"No entity found matching '{entity_name}'"}
+                # Exact match only
+                exact = [e for e in entities if e.name.lower() == entity_name.lower()]
+                if not exact:
+                    return {
+                        "error": "No exact match. Candidates:",
+                        "candidates": [{"id": e.id, "name": e.name} for e in entities],
+                    }
+                total = 0
+                deleted_ids = []
+                for e in exact:
+                    total += self.kg.delete_entity(e.id)
+                    deleted_ids.append(e.id)
+                return {"deleted_triples": total, "deleted_entities": deleted_ids}
+            else:
+                return {"error": "Provide entity_name or entity_id"}
+
+        elif action == "delete_triple":
+            if not triple_id:
+                return {"error": "Provide triple_id"}
+            found = self.kg.delete_triple(triple_id)
+            return {"deleted": found, "triple_id": triple_id}
+
+        elif action == "merge_entities":
+            if not entity_name or not merge_into:
+                return {"error": "Provide entity_name (to remove) and merge_into (to keep)"}
+            src = self.kg.find_entities(entity_name)
+            dst = self.kg.find_entities(merge_into)
+            if not src:
+                return {"error": f"Source entity '{entity_name}' not found"}
+            if not dst:
+                return {"error": f"Target entity '{merge_into}' not found"}
+            src_exact = [e for e in src if e.name.lower() == entity_name.lower()]
+            dst_exact = [e for e in dst if e.name.lower() == merge_into.lower()]
+            if not src_exact:
+                return {"error": f"No exact match for '{entity_name}'",
+                        "candidates": [{"id": e.id, "name": e.name} for e in src]}
+            if not dst_exact:
+                return {"error": f"No exact match for '{merge_into}'",
+                        "candidates": [{"id": e.id, "name": e.name} for e in dst]}
+            reassigned = self.kg.merge_entities(dst_exact[0].id, src_exact[0].id)
+            return {"merged": entity_name, "into": merge_into, "triples_reassigned": reassigned}
+
+        elif action == "find_duplicates":
+            dupes = self.kg.find_duplicate_entities()
+            return {"duplicates": dupes, "count": len(dupes)}
+
+        elif action == "find_orphans":
+            orphans = self.kg.find_orphan_entities()
+            return {"orphans": orphans, "count": len(orphans)}
+
+        elif action == "purge_orphans":
+            orphans = self.kg.find_orphan_entities()
+            for o in orphans:
+                self.kg.delete_entity(o["id"])
+            return {"purged": len(orphans)}
+
+        elif action == "purge_expired":
+            count = self.kg.purge_expired()
+            return {"purged_triples": count}
+
+        else:
+            return {"error": f"Unknown action: {action}. "
+                    "Valid: list_entities, list_triples, delete_entity, delete_triple, "
+                    "merge_entities, find_duplicates, find_orphans, purge_orphans, purge_expired"}
+
     def close(self):
         self.db.close()
 
