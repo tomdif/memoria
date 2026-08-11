@@ -1,5 +1,9 @@
-"""
-Head-to-head benchmark: Memoria vs MemPalace on LongMemEval (500 questions).
+"""Legacy Memoria/MemPalace LongMemEval comparison.
+
+This predates the audited metric and scope corrections. Its outputs are kept as
+historical development artifacts and are not official-compatible benchmark
+results. Use ``longmemeval_final.py`` and its local baseline options for current
+measurements.
 
 Both systems get the same data: per-question haystack of ~53 conversation sessions.
 We measure R@5, R@10, NDCG@10.

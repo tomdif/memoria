@@ -1,0 +1,81 @@
+{
+  "run_date": "2026-08-11",
+  "base_commit": "3fb6eacd24034199ee463344a07f67f2e05f08ee",
+  "code_state": "Audited working tree with the retrieval and correctness fixes described in the report; not a committed tag.",
+  "hardware": {
+    "cpu": "Apple M3 Max",
+    "memory_bytes": 38654705664,
+    "os": "macOS 26.3 (25D125)",
+    "architecture": "arm64"
+  },
+  "software": {
+    "python": "3.13.11",
+    "numpy": "2.4.4",
+    "rank-bm25": "0.2.2",
+    "sentence-transformers": "5.4.0",
+    "torch": "2.11.0",
+    "transformers": "5.5.3",
+    "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "reranker_model": "cross-encoder/ms-marco-MiniLM-L-12-v2"
+  },
+  "datasets": {
+    "longmemeval_s_cleaned.json": {
+      "sha256": "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442",
+      "rows": 500,
+      "scored_rows": 419
+    },
+    "locomo10.json": {
+      "sha256": "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4",
+      "qa_rows": 1986,
+      "evidence_scored_rows": 1982,
+      "core_evidence_scored_rows": 1536
+    },
+    "perltmem_en_v2.json": {
+      "sha256": "fb3011d78babdc9c5323a8d303ca7d4cdb9e2e08992c9890f9ccb2362ff8be94",
+      "upstream_commit": "8d9e19868e239740ef701e603ec205cd581f221b",
+      "character_banks": 141
+    },
+    "perltqa_en_v2.json": {
+      "sha256": "ca9f29cbb23eb8f7dbfb792359d9ff90eec066e6d927c83f6c0b7d0bf7baff23",
+      "upstream_commit": "8d9e19868e239740ef701e603ec205cd581f221b",
+      "qa_rows": 8593,
+      "valid_gold_rows": 8491,
+      "missing_gold_rows": 102
+    }
+  },
+  "audited_results": {
+    "longmemeval_s_memoria_balanced": {
+      "recall_all_at_5": 0.9427207637231504,
+      "recall_all_at_10": 0.9713603818615751,
+      "artifact": "longmemeval_s_balanced_post_windowing.json"
+    },
+    "locomo_memoria_balanced_windowed_core": {
+      "recall_all_at_5": 0.783203125,
+      "recall_all_at_10": 0.875,
+      "artifact": "locomo_memoria_windowed.json"
+    },
+    "frozen_generalization_audit": {
+      "retriever_sha256": "e0b026def0f7afb5c7245532cd3afcd387fe9316efa230d19a91bde0a8fbe12e",
+      "tests_passed": 57,
+      "longmemeval_recall_all_at_5": 0.9427207637231504,
+      "longmemeval_recall_all_at_10": 0.9713603818615751,
+      "longmemeval_artifact": "longmemeval_s_balanced_faceted_freeze.json",
+      "locomo_core_recall_all_at_5": 0.783203125,
+      "locomo_core_recall_all_at_10": 0.875,
+      "locomo_core_ndcg_any_at_10": 0.8119842695154108,
+      "locomo_artifact": "locomo_memoria_faceted_freeze.json"
+    },
+    "perltqa_untouched_holdout": {
+      "adapter_sha256": "7028cf87c740dd99706d7b2c0371fdd1f88ed4bf9d622feaee5aad2112c73716",
+      "retriever_sha256": "433a7bd7f1bef901486b6eecd14d4d1b637f44ec64e0c2c53b389d9ca4831104",
+      "tests_passed": 64,
+      "strict_recall_at_5": 0.84394274409403,
+      "valid_gold_recall_at_5": 0.854080791426216,
+      "window_bm25_strict_recall_at_5": 0.8050738973583149,
+      "window_minilm_strict_recall_at_5": 0.7187245432328639,
+      "artifact": "perltqa_en_v2_memoria_frozen.json",
+      "bm25_artifact": "perltqa_en_v2_window_bm25.json",
+      "minilm_artifact": "perltqa_en_v2_window_minilm.json"
+    }
+  }
+}

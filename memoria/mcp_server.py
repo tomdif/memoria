@@ -157,7 +157,7 @@ TOOLS = [
     {
         "name": "memoria_cleanup",
         "description": "Clean up the knowledge graph: list/delete entities and triples, "
-                       "merge duplicates, find orphans, purge expired data. "
+                       "merge duplicates, find true orphans, or explicitly purge temporal history. "
                        "Actions: list_entities, list_triples, delete_entity, delete_triple, "
                        "merge_entities, find_duplicates, find_orphans, purge_orphans, purge_expired.",
         "inputSchema": {

@@ -6,16 +6,18 @@ build-backend = "hatchling.build"
 name = "memoria"
 version = "0.1.0"
 description = "Spectral memory architecture with CAG-informed retrieval and consolidation"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.24",
+    "rank-bm25>=0.2.2",
     "scipy>=1.10",
     "sentence-transformers>=2.2",
-    "anthropic>=0.39",
 ]
 
 [project.optional-dependencies]
 mcp = ["mcp[cli]>=1.0"]
+llm = ["anthropic>=0.39"]
+bench = ["chromadb>=0.5"]
 dev = ["pytest>=7.0", "pytest-asyncio>=0.21"]
 
 [project.scripts]

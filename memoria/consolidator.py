@@ -26,7 +26,7 @@ from .spectral import (
     find_clusters,
     spectral_gap,
 )
-from .embeddings import Embedder
+from .embeddings import Embedder, serialize_embedding
 
 
 class Consolidator:
@@ -56,15 +56,15 @@ class Consolidator:
             "timestamp": time.time(),
         }
 
-        # Phase 0: Self-cleanse (dedup, remove garbage)
+        # Phase 0: Promote repeated facts before deduplication removes copies.
+        stats["merged"] = self._merge_repeated()
+
+        # Phase 1: Self-cleanse structural garbage while preserving history.
         cleanse = self._self_cleanse()
         stats["self_refs_removed"] = cleanse["self_refs"]
         stats["duplicates_merged"] = cleanse["duplicates"]
         stats["orphans_removed"] = cleanse["orphans"]
         stats["expired_purged"] = cleanse["expired"]
-
-        # Phase 1: Merge repeated facts
-        stats["merged"] = self._merge_repeated()
 
         # Phase 2: Spectral decay
         stats["decayed"] = self._spectral_decay(half_life_days)
@@ -87,41 +87,18 @@ class Consolidator:
     def _self_cleanse(self) -> dict:
         """Automatic self-cleansing: fix structural issues in the graph.
 
-        1. Remove self-referencing triples (entity -> relation -> same entity)
-        2. Deduplicate identical triples (same subject, predicate, object)
-        3. Merge exact-name duplicate entities
-        4. Remove orphan entities (no active triples)
-        5. Hard-delete expired (soft-deleted) triples
+        1. Merge exact-name duplicate entities
+        2. Remove self-referencing triples (entity -> relation -> same entity)
+        3. Deduplicate identical active triples, keeping highest confidence
+        4. Remove true orphan entities (no active or historical triples)
+
+        Expired triples are intentionally retained for temporal history. They
+        can still be removed explicitly with cleanup(action="purge_expired").
         """
         result = {"self_refs": 0, "duplicates": 0, "orphans": 0, "expired": 0}
 
-        # 1. Remove self-referencing triples
-        r = self.kg.db.execute(
-            """DELETE FROM triples
-               WHERE object_id IS NOT NULL
-                 AND subject_id = object_id
-                 AND valid_until IS NULL"""
-        )
-        result["self_refs"] = r.rowcount
-
-        # 2. Deduplicate identical active triples (keep the one with highest confidence)
-        dupes = self.kg.db.execute(
-            """SELECT GROUP_CONCAT(id), COUNT(*) as cnt,
-                      subject_id, predicate, COALESCE(object_id, ''), COALESCE(object_value, '')
-               FROM triples
-               WHERE valid_until IS NULL
-               GROUP BY subject_id, predicate, COALESCE(object_id, ''), COALESCE(object_value, '')
-               HAVING cnt > 1"""
-        ).fetchall()
-        for row in dupes:
-            ids = row[0].split(",")
-            # Keep the first (highest confidence due to ORDER BY), delete rest
-            keep_id = ids[0]
-            for dup_id in ids[1:]:
-                self.kg.db.execute("DELETE FROM triples WHERE id = ?", (dup_id,))
-                result["duplicates"] += 1
-
-        # 3. Merge exact-name duplicate entities
+        # 1. Merge exact-name duplicate entities first; this can create new
+        # self-references or duplicate triples that the following phases fix.
         name_dupes = self.kg.db.execute(
             """SELECT LOWER(name) as lname, GROUP_CONCAT(id), COUNT(*) as cnt
                FROM entities
@@ -135,33 +112,64 @@ class Consolidator:
                 self.kg.merge_entities(keep_id, merge_id)
                 result["duplicates"] += 1
 
-        # 4. Remove orphan entities
+        # 2. Remove self-referencing triples.
+        r = self.kg.db.execute(
+            """DELETE FROM triples
+               WHERE object_id IS NOT NULL
+                 AND subject_id = object_id
+                 AND valid_until IS NULL"""
+        )
+        result["self_refs"] = r.rowcount
+
+        # 3. Deduplicate identical active triples. Resolve the survivor with an
+        # explicit ORDER BY; GROUP_CONCAT itself provides no ordering guarantee.
+        dupes = self.kg.db.execute(
+            """SELECT subject_id, predicate, object_id, object_value
+               FROM triples
+               WHERE valid_until IS NULL
+               GROUP BY subject_id, predicate,
+                        COALESCE(object_id, ''), COALESCE(object_value, '')
+               HAVING COUNT(*) > 1"""
+        ).fetchall()
+        for subject_id, predicate, object_id, object_value in dupes:
+            rows = self.kg.db.execute(
+                """SELECT id FROM triples
+                   WHERE subject_id = ? AND predicate = ?
+                     AND object_id IS ? AND object_value IS ?
+                     AND valid_until IS NULL
+                   ORDER BY confidence DESC, created_at DESC, id""",
+                (subject_id, predicate, object_id, object_value),
+            ).fetchall()
+            for (dup_id,) in rows[1:]:
+                self.kg.db.execute("DELETE FROM triples WHERE id = ?", (dup_id,))
+                result["duplicates"] += 1
+
+        # 4. Remove entities that have no active or historical triples.
         orphans = self.kg.find_orphan_entities()
         for o in orphans:
             self.kg.delete_entity(o["id"])
         result["orphans"] = len(orphans)
-
-        # 5. Purge expired triples
-        result["expired"] = self.kg.purge_expired()
 
         self.kg.db.commit()
         return result
 
     def _merge_repeated(self) -> int:
         """Promote facts that appear in 3+ sources to high confidence."""
-        # Find (subject, predicate, object_value) combos with multiple sources
+        # Find exact (subject, predicate, object) facts with multiple sources.
         rows = self.kg.db.execute(
-            """SELECT subject_id, predicate, object_value, COUNT(DISTINCT source_ref) as src_count,
+            """SELECT subject_id, predicate, object_id, object_value,
+                      COUNT(DISTINCT source_ref) as src_count,
                       GROUP_CONCAT(id) as triple_ids
                FROM triples
                WHERE relation_type = 'fact' AND valid_until IS NULL
-               GROUP BY subject_id, predicate, object_value
+               GROUP BY subject_id, predicate,
+                        COALESCE(object_id, ''), COALESCE(object_value, '')
                HAVING src_count >= 3"""
         ).fetchall()
 
         merged = 0
         for r in rows:
-            triple_ids = r[4].split(",")
+            triple_ids = r[5].split(",")
             # Boost confidence of all matching triples
             self.kg.db.execute(
                 f"""UPDATE triples SET confidence = MIN(confidence * 1.5, 1.0)
@@ -268,7 +276,7 @@ class Consolidator:
                         embeddings.append(entity.embedding)
                 if embeddings:
                     centroid = np.mean(embeddings, axis=0)
-                    centroid_bytes = centroid.tobytes()
+                    centroid_bytes = serialize_embedding(centroid)
 
             # Generate summary if LLM available
             summary = None

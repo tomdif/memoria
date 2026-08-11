@@ -1,0 +1,74 @@
+{
+  "balanced": {
+    "benchmark": "LoCoMo session evidence retrieval diagnostic",
+    "core_four_categories": {
+      "total": 1536,
+      "metrics": {
+        "recall_any@5": 0.9010416666666666,
+        "recall_all@5": 0.783203125,
+        "ndcg_any@5": 0.7819656561152883,
+        "recall_any@10": 0.9674479166666666,
+        "recall_all@10": 0.875,
+        "ndcg_any@10": 0.8119842695154108
+      }
+    },
+    "all_categories": {
+      "total": 1982,
+      "metrics": {
+        "recall_any@5": 0.9076690211907165,
+        "recall_all@5": 0.8163471241170535,
+        "ndcg_any@5": 0.805542994327392,
+        "recall_any@10": 0.9672048435923309,
+        "recall_all@10": 0.8955600403632694,
+        "ndcg_any@10": 0.8315946039030079
+      }
+    },
+    "skipped": 4,
+    "time_sec": 282.8254840373993,
+    "qps": 7.007855062091616,
+    "retriever": "memoria",
+    "profile": "windowed",
+    "by_category": {
+      "temporal": {
+        "recall_any@5": 0.8691588785046729,
+        "recall_all@5": 0.8473520249221184,
+        "ndcg_any@5": 0.79210539910563,
+        "recall_any@10": 0.9532710280373832,
+        "recall_all@10": 0.940809968847352,
+        "ndcg_any@10": 0.8225127375444131
+      },
+      "multi-hop": {
+        "recall_any@5": 0.7065217391304348,
+        "recall_all@5": 0.5,
+        "ndcg_any@5": 0.5307920515487358,
+        "recall_any@10": 0.8804347826086957,
+        "recall_all@10": 0.6304347826086957,
+        "ndcg_any@10": 0.5839032734182603
+      },
+      "single-hop": {
+        "recall_any@5": 0.8971631205673759,
+        "recall_all@5": 0.3475177304964539,
+        "ndcg_any@5": 0.5333976428840426,
+        "recall_any@10": 0.9822695035460993,
+        "recall_all@10": 0.574468085106383,
+        "ndcg_any@10": 0.6017300939554044
+      },
+      "open-domain": {
+        "recall_any@5": 0.9357907253269917,
+        "recall_all@5": 0.9357907253269917,
+        "ndcg_any@5": 0.888920821218064,
+        "recall_any@10": 0.9774078478002378,
+        "recall_all@10": 0.9774078478002378,
+        "ndcg_any@10": 0.9034176713127355
+      },
+      "adversarial": {
+        "recall_any@5": 0.9304932735426009,
+        "recall_all@5": 0.9304932735426009,
+        "ndcg_any@5": 0.8867420783941883,
+        "recall_any@10": 0.9663677130044843,
+        "recall_all@10": 0.9663677130044843,
+        "ndcg_any@10": 0.899131540269261
+      }
+    }
+  }
+}

@@ -1,5 +1,8 @@
-"""
-LongMemEval benchmark runner for memoria.
+"""Legacy LongMemEval experiment runner.
+
+This predates the audited metric and scope corrections. Its outputs are kept as
+historical development artifacts and are not official-compatible benchmark
+results. Use ``longmemeval_final.py`` for current measurements.
 
 Evaluates retrieval quality: given a question and chat history,
 can memoria find the sessions that contain the answer?

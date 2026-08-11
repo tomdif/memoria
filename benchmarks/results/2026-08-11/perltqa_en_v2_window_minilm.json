@@ -1,0 +1,106 @@
+{
+  "benchmark": "PerLTQA English v2 memory retrieval",
+  "upstream_commit": "8d9e19868e239740ef701e603ec205cd581f221b",
+  "dataset_sha256": {
+    "memory": "fb3011d78babdc9c5323a8d303ca7d4cdb9e2e08992c9890f9ccb2362ff8be94",
+    "qa": "ca9f29cbb23eb8f7dbfb792359d9ff90eec066e6d927c83f6c0b7d0bf7baff23"
+  },
+  "retriever_sha256": "433a7bd7f1bef901486b6eecd14d4d1b637f44ec64e0c2c53b389d9ca4831104",
+  "protocol": {
+    "scope": "all updated English v2 questions",
+    "scored_unit": "native memory record",
+    "window_items": 4,
+    "window_stride": 2,
+    "metrics": [
+      "recall@1",
+      "recall@2",
+      "recall@3",
+      "recall@5"
+    ]
+  },
+  "validation": {
+    "characters": 32,
+    "questions": 8593,
+    "valid_gold": 8491,
+    "missing_gold": 102,
+    "by_type": {
+      "profile": {
+        "valid": 357,
+        "missing": 0
+      },
+      "social_relationship": {
+        "valid": 802,
+        "missing": 95
+      },
+      "events": {
+        "valid": 4494,
+        "missing": 7
+      },
+      "dialogues": {
+        "valid": 2838,
+        "missing": 0
+      }
+    },
+    "resolved_character_aliases": 1
+  },
+  "retriever": "window-minilm",
+  "mode": "balanced",
+  "strict_all": {
+    "total": 8593,
+    "metrics": {
+      "recall@1": 0.4213895030839055,
+      "recall@2": 0.6060747119748633,
+      "recall@3": 0.6611195158850227,
+      "recall@5": 0.7187245432328639
+    }
+  },
+  "valid_gold": {
+    "total": 8491,
+    "metrics": {
+      "recall@1": 0.4264515369214462,
+      "recall@2": 0.6133553173948887,
+      "recall@3": 0.6690613590860911,
+      "recall@5": 0.7273583794606053
+    }
+  },
+  "by_type_strict": {
+    "profile": {
+      "total": 357,
+      "metrics": {
+        "recall@1": 0.680672268907563,
+        "recall@2": 0.7703081232492998,
+        "recall@3": 0.8235294117647058,
+        "recall@5": 0.896358543417367
+      }
+    },
+    "social_relationship": {
+      "total": 897,
+      "metrics": {
+        "recall@1": 0.5094760312151616,
+        "recall@2": 0.6365663322185061,
+        "recall@3": 0.6967670011148273,
+        "recall@5": 0.7447045707915273
+      }
+    },
+    "events": {
+      "total": 4501,
+      "metrics": {
+        "recall@1": 0.5314374583425905,
+        "recall@2": 0.6767385025549878,
+        "recall@3": 0.7291712952677183,
+        "recall@5": 0.777382803821373
+      }
+    },
+    "dialogues": {
+      "total": 2838,
+      "metrics": {
+        "recall@1": 0.18639887244538408,
+        "recall@2": 0.46370683579985905,
+        "recall@3": 0.5214940098661028,
+        "recall@5": 0.595137420718816
+      }
+    }
+  },
+  "elapsed_sec": 136.17177510261536,
+  "qps": 63.10411973057227
+}

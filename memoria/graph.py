@@ -16,6 +16,30 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from .embeddings import deserialize_embedding, serialize_embedding
+
+
+# These predicates describe additive relationships. Other fact predicates are
+# treated as stateful attributes unless the caller explicitly overrides the
+# behavior with replace_existing=False.
+MULTI_VALUED_PREDICATES = {
+    "caused",
+    "contains",
+    "depends",
+    "depends_on",
+    "includes",
+    "implements",
+    "knows",
+    "likes",
+    "member_of",
+    "related_to",
+    "requires",
+    "supports",
+    "uses",
+    "works_on",
+    "works_with",
+}
+
 
 @dataclass
 class Entity:
@@ -56,16 +80,39 @@ class KnowledgeGraph:
 
     def add_entity(self, name: str, entity_type: str | None = None,
                    confidence: float = 1.0, embedding: np.ndarray | None = None) -> str:
-        """Add or return existing entity. Deduplicates by (name, entity_type)."""
+        """Add or return an entity, deduplicating names case-insensitively."""
+        # Exact match on (name, type) first
         existing = self.db.execute(
-            "SELECT id FROM entities WHERE name = ? AND entity_type IS ?",
+            "SELECT id FROM entities WHERE LOWER(name) = LOWER(?) AND entity_type IS ?",
             (name, entity_type),
         ).fetchone()
         if existing:
+            if embedding is not None:
+                self.db.execute(
+                    "UPDATE entities SET embedding = COALESCE(embedding, ?) WHERE id = ?",
+                    (serialize_embedding(embedding), existing[0]),
+                )
+                self.db.commit()
+            return existing[0]
+        # Fall back to name-only match to prevent duplicates
+        existing = self.db.execute(
+            "SELECT id FROM entities WHERE LOWER(name) = LOWER(?) LIMIT 1",
+            (name,),
+        ).fetchone()
+        if existing:
+            # Fill missing metadata without overwriting an established type.
+            self.db.execute(
+                """UPDATE entities
+                   SET entity_type = COALESCE(entity_type, ?),
+                       embedding = COALESCE(embedding, ?)
+                   WHERE id = ?""",
+                (entity_type, serialize_embedding(embedding), existing[0]),
+            )
+            self.db.commit()
             return existing[0]
 
         eid = str(uuid.uuid4())
-        emb_bytes = embedding.tobytes() if embedding is not None else None
+        emb_bytes = serialize_embedding(embedding)
         self.db.execute(
             """INSERT INTO entities (id, name, entity_type, created_at, confidence, embedding)
                VALUES (?, ?, ?, ?, ?, ?)""",
@@ -83,7 +130,7 @@ class KnowledgeGraph:
         ).fetchone()
         if not row:
             return None
-        emb = np.frombuffer(row[7], dtype=np.float64) if row[7] else None
+        emb = deserialize_embedding(row[7])
         return Entity(
             id=row[0], name=row[1], entity_type=row[2], created_at=row[3],
             confidence=row[4], access_count=row[5], last_accessed=row[6],
@@ -121,6 +168,7 @@ class KnowledgeGraph:
         confidence: float = 1.0,
         valid_from: float | None = None,
         source_ref: str | None = None,
+        replace_existing: bool | None = None,
     ) -> tuple[str, list[dict]]:
         """Add a triple, detecting contradictions.
 
@@ -128,7 +176,13 @@ class KnowledgeGraph:
         of existing triples that conflict with this one.
         """
         contradictions = []
-        if relation_type == "fact":
+        if replace_existing is None:
+            replace_existing = (
+                relation_type == "fact"
+                and predicate.lower() not in MULTI_VALUED_PREDICATES
+            )
+
+        if relation_type == "fact" and replace_existing:
             contradictions = self._detect_contradictions(
                 subject_id, predicate, object_id, object_value
             )
@@ -145,20 +199,11 @@ class KnowledgeGraph:
              relation_type, confidence, valid_from or now, source_ref, now),
         )
 
-        # If contradictions found, create supersedes edges and close old facts
+        # If contradictions found, close old facts (valid_until marks them as superseded)
         for old in contradictions:
-            # Close the old triple's validity window
             self.db.execute(
                 "UPDATE triples SET valid_until = ? WHERE id = ?",
                 (now, old["id"]),
-            )
-            # Create supersedes edge
-            self.db.execute(
-                """INSERT INTO triples
-                   (id, subject_id, predicate, object_id, object_value,
-                    relation_type, confidence, valid_from, source_ref, created_at)
-                   VALUES (?, ?, 'supersedes', ?, NULL, 'supersedes', ?, ?, ?, ?)""",
-                (str(uuid.uuid4()), tid, old["id"], confidence, now, source_ref, now),
             )
 
         self.db.commit()
@@ -244,7 +289,13 @@ class KnowledgeGraph:
             for r in rows
         ]
 
-    def neighbors(self, entity_id: str, max_depth: int = 1, active_only: bool = True) -> dict:
+    def neighbors(
+        self,
+        entity_id: str,
+        max_depth: int = 1,
+        active_only: bool = True,
+        as_of: float | None = None,
+    ) -> dict:
         """BFS neighbor walk from entity. Returns {depth: [triples]}."""
         result = {}
         visited_entities = {entity_id}
@@ -256,12 +307,16 @@ class KnowledgeGraph:
 
             for eid in frontier:
                 # Outgoing
-                for t in self.get_triples(subject_id=eid, active_only=active_only):
+                for t in self.get_triples(
+                    subject_id=eid, active_only=active_only, as_of=as_of
+                ):
                     triples_at_depth.append(t)
                     if t["object_id"] and t["object_id"] not in visited_entities:
                         next_frontier.add(t["object_id"])
                 # Incoming
-                for t in self.get_triples(object_id=eid, active_only=active_only):
+                for t in self.get_triples(
+                    object_id=eid, active_only=active_only, as_of=as_of
+                ):
                     triples_at_depth.append(t)
                     if t["subject_id"] not in visited_entities:
                         next_frontier.add(t["subject_id"])
@@ -333,6 +388,8 @@ class KnowledgeGraph:
     def merge_entities(self, keep_id: str, merge_id: str) -> int:
         """Merge merge_id into keep_id: reassign all triples, then delete merge_id.
         Returns number of triples reassigned."""
+        if keep_id == merge_id:
+            return 0
         reassigned = 0
         # Reassign triples where merge_id is subject
         r1 = self.db.execute(
@@ -391,14 +448,13 @@ class KnowledgeGraph:
         ]
 
     def find_orphan_entities(self) -> list[dict]:
-        """Find entities with zero active triples (neither subject nor object)."""
+        """Find entities with no triples at all (active or historical)."""
         rows = self.db.execute(
             """SELECT e.id, e.name, e.entity_type, e.confidence
                FROM entities e
                WHERE NOT EXISTS (
                    SELECT 1 FROM triples t
-                   WHERE (t.subject_id = e.id OR t.object_id = e.id)
-                     AND t.valid_until IS NULL
+                   WHERE t.subject_id = e.id OR t.object_id = e.id
                )
                ORDER BY e.name"""
         ).fetchall()

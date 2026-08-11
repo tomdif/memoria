@@ -2,7 +2,7 @@
 
 Persistent memory for AI agents. Local-first, no API keys required.
 
-Memoria gives any AI coding tool — Claude Code, Cursor, Codex, or your own agents — a shared long-term memory that persists across conversations. It extracts entities and relationships from conversations, stores them in a knowledge graph, and retrieves them using a three-stage pipeline that achieves **95.2% Recall@5** on LongMemEval (500 questions).
+Memoria gives any AI coding tool — Claude Code, Cursor, Codex, or your own agents — a shared long-term memory that persists across conversations. It extracts entities and relationships from conversations, stores them in a knowledge graph, and retrieves them using a three-stage pipeline.
 
 ## How it works
 
@@ -19,99 +19,75 @@ Query → Bi-encoder + BM25 → Cross-encoder rerank → Ranked results
 2. **Scoped vector search** — Bi-encoder similarity + BM25 keyword matching, with adaptive query expansion for multi-topic queries
 3. **Cross-encoder rerank** — Rerank top candidates with a cross-encoder, fused with temporal decay and access frequency
 
-**Three retrieval modes** to trade speed for accuracy:
-
-| Mode | LongMemEval R@5 | LoCoMo R@5 | Throughput |
-|------|----------------|-----------|------------|
-| `speed` | 94.0% | 63.2% | 15+ q/s |
-| `balanced` | 93.6% | 63.2% | 11+ q/s |
-| `quality` | 95.0% | 63.2% | 5+ q/s |
-
-All benchmarks on Apple Silicon (M-series), single-threaded, no GPU.
+Three retrieval modes (`speed`, `balanced`, and `quality`) trade reranking depth
+for latency. For long raw conversations, grouped retrieval indexes overlapping
+turn windows and collapses them back to unique parent sessions. Explicit
+multi-entity comparisons are decomposed into entity-scoped probes, with
+parent-level coverage checks and tie-aware reciprocal-rank fusion.
 
 ## Benchmarks
 
-### LongMemEval (500 questions)
+The latest audited run is documented in
+[the August 2026 benchmark report](benchmarks/BENCHMARK_REPORT_2026-08-11.md).
+It uses the official LongMemEval retrieval metric implementation and
+apples-to-apples local controls.
 
-The [LongMemEval](https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned) benchmark tests retrieval across ~53 conversation sessions per question, covering six categories of conversational memory.
+| Dataset and scope | Retriever | Recall-All@5 | Recall-All@10 | NDCG-Any@10 |
+|---|---:|---:|---:|---:|
+| LongMemEval-S official retrieval scope (419) | **Memoria balanced** | **94.3%** | **97.1%** | **0.9478** |
+|  | MiniLM dense | 85.4% | 93.8% | 0.8785 |
+|  | Flat BM25 | 74.2% | 82.6% | 0.7962 |
+| PerLTQA English v2, strict full scope (8,593) | **Memoria windowed** | **84.4%** | — | — |
+|  | Windowed BM25 | 80.5% | — | — |
+|  | Windowed MiniLM | 71.9% | — | — |
+| LoCoMo evidence diagnostic, categories 1–4 (1,536) | **Memoria windowed** | **78.3%** | **87.5%** | **0.8120** |
+|  | Flat BM25 | 62.2% | 73.3% | 0.6610 |
+|  | Memoria legacy session index | 50.9% | 68.4% | 0.5459 |
+|  | MiniLM dense | 41.5% | 55.7% | 0.4612 |
 
-**Overall results (balanced mode, 30% BM25 fusion):**
-
-| Metric | Score |
-|--------|-------|
-| Recall@5 | **93.6%** |
-| Recall@10 | **97.0%** |
-| NDCG@10 | **0.9557** |
-
-**Breakdown by question type:**
-
-| Category | R@5 | R@10 | NDCG@10 | n |
-|----------|-----|------|---------|---|
-| Single-session (user) | 100.0% | 100.0% | 0.971 | 70 |
-| Single-session (assistant) | 100.0% | 100.0% | 0.987 | 56 |
-| Single-session (preference) | 96.7% | 96.7% | 0.863 | 30 |
-| Knowledge update | 100.0% | 100.0% | 0.985 | 78 |
-| Multi-session | 95.5% | 98.5% | 0.976 | 133 |
-| Temporal reasoning | 87.2% | 94.0% | 0.929 | 133 |
-
-**Speed vs. quality tradeoff (all 500 questions):**
-
-| Config | R@5 | R@10 | NDCG@10 | Time | q/s |
-|--------|-----|------|---------|------|-----|
-| top-10 single-pass | 93.2% | 95.4% | 0.9416 | 24.9s | 20.1 |
-| top-15 single-pass | 93.6% | 96.8% | 0.9426 | 25.4s | 19.7 |
-| **top-20 single-pass (speed)** | **94.0%** | **97.4%** | **0.9428** | **30.4s** | **16.4** |
-| top-25 single-pass | 94.0% | 97.2% | 0.9417 | 35.2s | 14.2 |
-| **top-15 dual-pass (balanced)** | **94.6%** | **97.0%** | **0.9557** | **40.3s** | **12.4** |
-| **top-20 dual-pass (quality)** | **95.0%** | **97.6%** | **0.9570** | **102.0s** | **4.9** |
-| top-50 dual-pass | 95.2% | 97.8% | 0.9579 | 133.1s | 3.8 |
-
-Theoretical ceiling: 99.4% R@5 (3 questions require >5 answer sessions).
-
-### LoCoMo (1,982 questions)
-
-The [LoCoMo](https://github.com/snap-research/locomo) benchmark tests multi-hop reasoning across 10 long conversations (19-32 sessions each, 400-600 dialog turns). This is a significantly harder benchmark — questions require finding evidence scattered across multiple sessions in much longer conversation histories.
-
-**Overall results (balanced mode, 30% BM25 fusion):**
-
-| Metric | Score |
-|--------|-------|
-| Recall@5 | **63.2%** |
-| Recall@10 | **80.2%** |
-
-**Breakdown by category:**
-
-| Category | R@5 | R@10 | n |
-|----------|-----|------|---|
-| Single-fact temporal | 77.3% | 88.2% | 321 |
-| Open-ended | 71.5% | 89.7% | 446 |
-| Multi-fact temporal | 69.3% | 87.6% | 841 |
-| Multi-fact | 38.0% | 53.3% | 92 |
-| Single-fact | 23.8% | 42.9% | 282 |
-
-LoCoMo's single-fact questions are adversarially hard — they require finding one specific line in a 20+ session conversation. Temporal questions are easier because date context narrows the search space.
+These numbers evaluate benchmark-facing raw-conversation retrieval. They do not
+exercise Memoria's conversation ingestion, entity extraction, knowledge-graph
+construction, consolidation, or final answer generation. LongMemEval's official
+end-to-end score and LoCoMo's headline score are generated-answer metrics, so
+the retrieval results above must not be presented as QA accuracy. The LoCoMo
+windowed LoCoMo profile was developed after inspecting the public benchmark's
+legacy failures, so it is a post-hoc engineering result rather than an unbiased
+held-out estimate. PerLTQA English v2 was evaluated afterward as an untouched
+external holdout with the retriever frozen; its adapter and data-quality limits
+are documented in the report.
 
 ### Reproducing benchmarks
 
 ```bash
 cd benchmarks
 
-# LongMemEval (500 questions, ~2-5 min depending on mode)
+# Install benchmark-only comparison dependencies first
+pip install -e "..[bench]"
+
+# LongMemEval-S (419 rows in the official retrieval scope)
 python download_data.py
-python longmemeval_final.py
+python longmemeval_final.py --mode balanced --scope official
+python longmemeval_final.py --scope official --retriever flat-bm25
+python longmemeval_final.py --scope official --retriever minilm
 
-# LoCoMo (1,982 questions, ~2 min)
-python locomo_bench.py
+# LoCoMo session-evidence diagnostic
+python locomo_bench.py --mode balanced --profile windowed
+python locomo_bench.py --mode balanced --profile legacy
+python locomo_bench.py --retriever flat-bm25
+python locomo_bench.py --retriever minilm
 
-# Full head-to-head comparison
-python headtohead_bench.py --max 500
+# PerLTQA English v2 untouched external holdout
+python download_perltqa.py
+python perltqa_bench.py --retriever memoria --output results_perltqa.json
+python perltqa_bench.py --retriever window-bm25 --output results_perltqa_bm25.json
+python perltqa_bench.py --retriever window-minilm --output results_perltqa_minilm.json
 ```
 
 ## Installation
 
 ### Requirements
 
-- Python 3.9+
+- Python 3.10+
 - ~500 MB disk for embedding model (downloaded on first use)
 - No API keys required for core functionality
 - Optional: Anthropic API key for LLM-powered entity extraction (falls back to heuristic extraction without it)
@@ -122,6 +98,14 @@ python headtohead_bench.py --max 500
 git clone https://github.com/tomdif/memoria.git
 cd memoria
 pip install -e .
+```
+
+For optional integrations, install the corresponding extra:
+
+```bash
+pip install -e ".[mcp]"      # MCP server
+pip install -e ".[llm]"      # Anthropic-powered extraction
+pip install -e ".[dev]"      # Test suite
 ```
 
 ### Install from PyPI (coming soon)
@@ -136,6 +120,7 @@ pip install memoria-ai
 
 ```bash
 # 1. Add MCP server
+pip install -e ".[mcp]"
 claude mcp add memoria -- python -m memoria.mcp_server
 
 # 2. Copy the CLAUDE.md to your project (enables automatic, invisible memory)
@@ -288,7 +273,7 @@ memoria cleanup list-triples
 memoria cleanup find-duplicates
 memoria cleanup find-orphans
 memoria cleanup purge-orphans
-memoria cleanup purge-expired
+memoria cleanup purge-expired  # permanently deletes superseded history
 memoria cleanup delete-entity --name "old entity"
 memoria cleanup delete-triple --id "triple-uuid"
 memoria cleanup merge --name "duplicate" --into "canonical"
@@ -335,7 +320,7 @@ memoria cleanup merge --name "duplicate" --into "canonical"
 - **Local-first**: Everything runs on your machine. No cloud, no API calls for core functionality
 - **Single SQLite file**: The entire memory state is one file (`~/.memoria/memoria.db`). Back it up, move it, share it
 - **Spectral consolidation**: Uses the spectral gap of the knowledge graph to determine search depth and prune low-importance memories
-- **Self-cleansing**: Every `consolidate()` call automatically removes self-referencing triples, deduplicates identical facts, merges exact-name duplicate entities, removes orphan entities, and purges expired data — no manual cleanup needed
+- **History-safe self-cleansing**: Every `consolidate()` call removes self-referencing triples, deduplicates identical facts, merges exact-name duplicate entities, and removes true orphans. Superseded facts remain available to temporal history until `cleanup purge-expired` is explicitly requested
 - **Embedding cache**: Session embeddings are cached by content hash, so repeated queries over the same corpus hit memory instead of re-encoding
 
 ## MCP Tools

@@ -10,7 +10,37 @@ Embeddings are used for:
 from __future__ import annotations
 
 import numpy as np
-from functools import lru_cache
+
+
+EMBEDDING_DTYPE = np.float32
+
+
+def serialize_embedding(embedding: np.ndarray | None) -> bytes | None:
+    """Serialize an embedding using the canonical on-disk dtype."""
+    if embedding is None:
+        return None
+    return np.asarray(embedding, dtype=EMBEDDING_DTYPE).tobytes()
+
+
+def deserialize_embedding(
+    data: bytes | None,
+    expected_dimension: int | None = None,
+) -> np.ndarray | None:
+    """Deserialize canonical float32 data, with legacy float64 compatibility."""
+    if not data:
+        return None
+
+    value = np.frombuffer(data, dtype=EMBEDDING_DTYPE)
+    if expected_dimension is None or value.size == expected_dimension:
+        return value
+
+    # Early versions wrote the source dtype without metadata. Accept old
+    # float64 blobs when their decoded dimension identifies them unambiguously.
+    if len(data) % np.dtype(np.float64).itemsize == 0:
+        legacy = np.frombuffer(data, dtype=np.float64)
+        if legacy.size == expected_dimension:
+            return legacy.astype(EMBEDDING_DTYPE)
+    return None
 
 
 class Embedder:
@@ -29,13 +59,20 @@ class Embedder:
 
     @property
     def dimension(self) -> int:
+        if hasattr(self.model, "get_embedding_dimension"):
+            return self.model.get_embedding_dimension()
         return self.model.get_sentence_embedding_dimension()
 
     def embed(self, texts: str | list[str]) -> np.ndarray:
         """Embed one or more texts. Returns (n, dim) array."""
         if isinstance(texts, str):
             texts = [texts]
-        return self.model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
+        encoded = self.model.encode(
+            texts,
+            normalize_embeddings=True,
+            show_progress_bar=False,
+        )
+        return np.asarray(encoded, dtype=EMBEDDING_DTYPE)
 
     def embed_single(self, text: str) -> np.ndarray:
         """Embed a single text. Returns (dim,) array."""

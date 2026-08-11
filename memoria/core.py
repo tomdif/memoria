@@ -92,8 +92,8 @@ class Memoria:
         """Retrieve memories relevant to a query. Three-pass retrieval.
 
         Args:
-            mode: "speed" (16 q/s, 94.0% R@5), "balanced" (12 q/s, 94.6% R@5),
-                  or "quality" (5 q/s, 95.0% R@5).
+            mode: ``speed``, ``balanced``, or ``quality``. The modes select
+                  reranking depth; measured latency depends on corpus and hardware.
         """
         retrieval_mode = RetrievalMode(mode)
         return self.retriever.retrieve(query, top_k=top_k, as_of=as_of, mode=retrieval_mode)
@@ -237,9 +237,9 @@ class Memoria:
           - "delete_triple": Delete a specific triple by ID
           - "merge_entities": Merge entity_name into merge_into (keeps merge_into)
           - "find_duplicates": Find entities with similar/identical names
-          - "find_orphans": Find entities with no active triples
-          - "purge_orphans": Delete all orphan entities
-          - "purge_expired": Hard-delete all soft-deleted (expired) triples
+          - "find_orphans": Find entities with no active or historical triples
+          - "purge_orphans": Delete all true orphan entities
+          - "purge_expired": Permanently delete superseded/expired history
         """
         if action == "list_entities":
             entities = self.kg.list_entities()

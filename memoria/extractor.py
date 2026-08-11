@@ -21,7 +21,8 @@ Extract structured knowledge from this conversation. Return a JSON object with:
 1. "entities": list of {{"name": str, "type": str}}
    Types: person, project, tool, concept, file, organization, location, event
 
-2. "facts": list of {{"subject": str, "predicate": str, "object": str, "confidence": float}}
+2. "facts": list of {{"subject": str, "predicate": str, "object": str,
+   "confidence": float, "replace_existing": bool}}
    Predicates should be short verb phrases: "uses", "is_part_of", "decided_to", "prefers", etc.
    Confidence 0.0-1.0 based on how definitive the statement is.
 
@@ -35,6 +36,9 @@ Rules:
 - Extract ONLY what is stated or strongly implied. Do not infer.
 - Use canonical entity names (normalize casing, expand abbreviations).
 - Predicates should be present tense, lowercase, underscore-separated.
+- Set replace_existing=true only for a stateful, single-valued attribute update
+  (for example version/status/database changing). Set it false for additive
+  relationships such as uses/includes/depends_on/knows.
 - Confidence: 1.0 = explicitly stated fact, 0.7 = strongly implied, 0.5 = mentioned in passing.
 - Skip greetings, meta-conversation, and filler.
 
@@ -109,9 +113,13 @@ def ingest_extraction(
         entity_map[name] = eid
         stats["entities_added"] += 1
 
-    def resolve(name: str) -> str | None:
+    def resolve(name: str | None) -> str | None:
         """Resolve entity name to ID, creating if needed."""
+        if not name:
+            return None
         name = name.strip()
+        if not name:
+            return None
         if name in entity_map:
             return entity_map[name]
         # Try fuzzy match
@@ -150,6 +158,7 @@ def ingest_extraction(
             object_id=obj_id, object_value=obj_value,
             relation_type="fact", confidence=confidence,
             valid_from=now, source_ref=source_ref,
+            replace_existing=fact.get("replace_existing"),
         )
         stats["triples_added"] += 1
         if contras:
@@ -182,6 +191,7 @@ def ingest_extraction(
             relation_type="fact",
             confidence=float(dec.get("confidence", 0.9)),
             valid_from=now, source_ref=source_ref,
+            replace_existing=False,
         )
         stats["triples_added"] += 1
         if contras:

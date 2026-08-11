@@ -1,0 +1,72 @@
+{
+  "benchmark": "LongMemEval-S session retrieval",
+  "scope": "official",
+  "metrics": {
+    "recall_any@5": 0.9809069212410502,
+    "recall_all@5": 0.9427207637231504,
+    "ndcg_any@5": 0.9414103291055469,
+    "recall_any@10": 0.9904534606205251,
+    "recall_all@10": 0.9713603818615751,
+    "ndcg_any@10": 0.9477745561727375
+  },
+  "failures": 24,
+  "impossible": 3,
+  "total": 419,
+  "source_total": 500,
+  "excluded_abstention": 30,
+  "excluded_without_user_evidence": 51,
+  "elapsed_sec": 119.47587990760803,
+  "qps": 3.506984006512588,
+  "mode": "balanced",
+  "retriever": "memoria",
+  "by_type": {
+    "single-session-user": {
+      "recall_any@5": 1.0,
+      "recall_all@5": 1.0,
+      "ndcg_any@5": 0.994233277399554,
+      "recall_any@10": 1.0,
+      "recall_all@10": 1.0,
+      "ndcg_any@10": 0.994233277399554
+    },
+    "multi-session": {
+      "recall_any@5": 1.0,
+      "recall_all@5": 0.9421487603305785,
+      "ndcg_any@5": 0.9522826471016421,
+      "recall_any@10": 1.0,
+      "recall_all@10": 0.9752066115702479,
+      "ndcg_any@10": 0.9587753695383048
+    },
+    "single-session-preference": {
+      "recall_any@5": 0.9666666666666667,
+      "recall_all@5": 0.9666666666666667,
+      "ndcg_any@5": 0.9087286502380972,
+      "recall_any@10": 0.9666666666666667,
+      "recall_all@10": 0.9666666666666667,
+      "ndcg_any@10": 0.9087286502380972
+    },
+    "temporal-reasoning": {
+      "recall_any@5": 0.9448818897637795,
+      "recall_all@5": 0.8740157480314961,
+      "ndcg_any@5": 0.8829570370460933,
+      "recall_any@10": 0.9763779527559056,
+      "recall_all@10": 0.937007874015748,
+      "ndcg_any@10": 0.8977679955210278
+    },
+    "knowledge-update": {
+      "recall_any@5": 1.0,
+      "recall_all@5": 1.0,
+      "ndcg_any@5": 0.9888388143105166,
+      "recall_any@10": 1.0,
+      "recall_all@10": 1.0,
+      "ndcg_any@10": 0.9888388143105166
+    },
+    "single-session-assistant": {
+      "recall_any@5": 1.0,
+      "recall_all@5": 1.0,
+      "ndcg_any@5": 1.0,
+      "recall_any@10": 1.0,
+      "recall_all@10": 1.0,
+      "ndcg_any@10": 1.0
+    }
+  }
+}

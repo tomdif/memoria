@@ -1,5 +1,8 @@
-"""
-Optimized LongMemEval benchmark runner.
+"""Legacy LongMemEval optimization sweep.
+
+This predates the audited metric and scope corrections. Its outputs are kept as
+historical development artifacts and are not official-compatible benchmark
+results. Use ``longmemeval_final.py`` for current measurements.
 
 Structural improvements over baseline:
   1. Adaptive query expansion: when top results are clustered (suggesting
