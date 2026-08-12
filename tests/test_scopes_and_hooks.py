@@ -1,11 +1,13 @@
-"""Project isolation and deterministic Claude Code integration tests."""
+"""Project isolation and deterministic agent integration tests."""
 
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
+import memoria.hooks as hooks_module
 
 from memoria.core import Memoria
 from memoria.daemon import daemon_status, hook_request, start_daemon, stop_daemon
@@ -15,7 +17,7 @@ from memoria.hooks import (
     handle_user_prompt,
     recall_context,
 )
-from memoria.integrations import doctor_report, install_claude_hooks
+from memoria.integrations import doctor_report, install_claude_hooks, install_codex_hooks
 from memoria.retriever import Retriever
 from memoria.scopes import MemoryScope, scoped_db_path
 
@@ -247,6 +249,75 @@ def test_claude_installer_is_idempotent_and_preserves_existing_hooks(tmp_path):
 
     report = doctor_report(settings_path=settings_path, cwd=tmp_path)
     assert report["ok"] is True
+
+
+def test_codex_installer_uses_command_strings_and_preserves_hooks(tmp_path):
+    hooks_path = tmp_path / "hooks.json"
+    hooks_path.write_text(json.dumps({
+        "description": "Existing Codex hooks",
+        "hooks": {
+            "Stop": [{
+                "hooks": [{"type": "command", "command": "notify-send done"}]
+            }]
+        },
+    }))
+
+    first = install_codex_hooks(hooks_path, python_executable="/opt/My Python/python3")
+    second = install_codex_hooks(hooks_path, python_executable="/opt/My Python/python3")
+    settings = json.loads(hooks_path.read_text())
+
+    assert first["installed"] and second["installed"]
+    assert first["trust_required"] is True
+    assert settings["description"] == "Existing Codex hooks"
+    stop_commands = [
+        handler["command"]
+        for group in settings["hooks"]["Stop"]
+        for handler in group["hooks"]
+    ]
+    assert stop_commands.count("notify-send done") == 1
+    memoria_commands = [command for command in stop_commands if "memoria.hooks" in command]
+    assert len(memoria_commands) == 1
+    assert "--agent codex" in memoria_commands[0]
+    assert memoria_commands[0].startswith("'/opt/My Python/python3'")
+    assert settings["hooks"]["UserPromptSubmit"][0]["hooks"][0][
+        "additionalContextLimit"
+    ] == 2500
+    assert Path(first["backup_path"]).exists()
+
+    report = doctor_report(
+        settings_path=hooks_path,
+        cwd=tmp_path,
+        integration="codex",
+    )
+    assert report["ok"] is True
+    assert report["integration"] == "codex"
+
+
+def test_codex_stop_cli_emits_schema_safe_json(monkeypatch, capsys):
+    event = {
+        "session_id": "codex-session",
+        "cwd": "/workspace",
+        "last_assistant_message": "Implemented the requested change.",
+    }
+    received = {}
+
+    def fake_request(command, payload):
+        received.update(payload)
+        assert command == "stop"
+        return {"stored": 1}
+
+    monkeypatch.setattr(hooks_module, "_read_event", lambda: event)
+    monkeypatch.setattr("memoria.daemon.hook_request", fake_request)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["memoria.hooks", "stop", "--agent", "codex"],
+    )
+
+    hooks_module.main()
+
+    assert json.loads(capsys.readouterr().out) == {}
+    assert received["_memoria_agent"] == "codex"
 
 
 def test_local_daemon_starts_handles_hooks_and_stops(tmp_path, monkeypatch):

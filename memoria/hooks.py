@@ -1,8 +1,8 @@
-"""Deterministic Claude Code lifecycle hooks for Memoria.
+"""Deterministic Claude Code and Codex lifecycle hooks for Memoria.
 
 ``UserPromptSubmit`` recalls relevant project and global memories and injects
 them as context. ``Stop`` stores durable turn outcomes asynchronously. Both
-commands consume Claude Code's JSON event from stdin.
+commands consume either agent's compatible JSON event from stdin.
 """
 
 from __future__ import annotations
@@ -82,7 +82,7 @@ def _pending_prefix(session_id: str) -> str:
 def _read_event(stream: TextIO | None = None) -> dict[str, Any]:
     raw = (stream or sys.stdin).read()
     if not raw.strip():
-        raise ValueError("expected a Claude Code hook event on stdin")
+        raise ValueError("expected an agent hook event on stdin")
     event = json.loads(raw)
     if not isinstance(event, dict):
         raise ValueError("hook event must be a JSON object")
@@ -279,7 +279,7 @@ def store_turn_memories(
     *,
     base_db_path: str | Path | None = None,
 ) -> int:
-    """Store durable candidates from a completed Claude Code turn."""
+    """Store durable candidates from a completed agent turn."""
     session_id = str(event.get("session_id") or "")
     pending, pending_path = _load_pending_prompt(session_id)
     if not pending:
@@ -298,8 +298,9 @@ def store_turn_memories(
             if candidate["scope"] == "global"
             else project_scope
         )
+        agent = str(event.get("_memoria_agent") or "claude-code")
         metadata = {
-            "source": "claude-code-hook",
+            "source": f"{agent}-hook",
             "memory_kind": candidate["kind"],
             "verification": candidate["verification"],
         }
@@ -330,18 +331,31 @@ def handle_stop(event: dict[str, Any]) -> dict[str, Any]:
 
 def main() -> None:
     if len(sys.argv) < 2:
-        print("Usage: python -m memoria.hooks user-prompt|stop", file=sys.stderr)
+        print(
+            "Usage: python -m memoria.hooks user-prompt|stop [--agent NAME]",
+            file=sys.stderr,
+        )
         raise SystemExit(2)
 
     command = sys.argv[1]
+    agent = "claude-code"
+    if "--agent" in sys.argv[2:]:
+        index = sys.argv.index("--agent", 2)
+        if index + 1 >= len(sys.argv):
+            print("--agent requires a value", file=sys.stderr)
+            raise SystemExit(2)
+        agent = sys.argv[index + 1]
     event: dict[str, Any] = {}
     try:
         event = _read_event()
+        event["_memoria_agent"] = agent
         from .daemon import hook_request
 
         output = hook_request(command, event)
         if output is not None:
-            print(json.dumps(output))
+            # Codex Stop validates stdout as a hook response, so do not expose
+            # Memoria's internal storage count as an unknown top-level field.
+            print(json.dumps({} if command == "stop" and agent == "codex" else output))
     except Exception as exc:
         # Preserve pending prompts and saving even when the daemon cannot run.
         if command == "user-prompt" and event:

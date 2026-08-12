@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
+import shlex
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -15,6 +18,12 @@ def claude_settings_path(*, project: bool = False, cwd: str | Path | None = None
     if project:
         return Path(cwd or Path.cwd()).resolve() / ".claude" / "settings.local.json"
     return Path("~/.claude/settings.json").expanduser()
+
+
+def codex_hooks_path(*, project: bool = False, cwd: str | Path | None = None) -> Path:
+    if project:
+        return Path(cwd or Path.cwd()).resolve() / ".codex" / "hooks.json"
+    return Path("~/.codex/hooks.json").expanduser()
 
 
 def _handler(command: str, args: list[str], *, timeout: int, async_: bool = False) -> dict:
@@ -49,6 +58,53 @@ def memoria_hook_groups(python_executable: str | None = None) -> dict[str, dict]
                     timeout=120,
                     async_=True,
                 )
+            ]
+        },
+    }
+
+
+def _command_line(parts: list[str]) -> str:
+    """Render the command-string form required by Codex hooks."""
+    if os.name == "nt":
+        return subprocess.list2cmdline(parts)
+    return shlex.join(parts)
+
+
+def codex_hook_groups(python_executable: str | None = None) -> dict[str, dict]:
+    executable = python_executable or sys.executable
+    return {
+        "UserPromptSubmit": {
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": _command_line([
+                        executable,
+                        "-m",
+                        "memoria.hooks",
+                        "user-prompt",
+                        "--agent",
+                        "codex",
+                    ]),
+                    "timeout": 60,
+                    "additionalContextLimit": 2500,
+                }
+            ]
+        },
+        "Stop": {
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": _command_line([
+                        executable,
+                        "-m",
+                        "memoria.hooks",
+                        "stop",
+                        "--agent",
+                        "codex",
+                    ]),
+                    "timeout": 120,
+                    "async": True,
+                }
             ]
         },
     }
@@ -96,7 +152,7 @@ def _remove_existing_memoria_hooks(settings: dict[str, Any]) -> None:
             hooks.pop(event_name, None)
 
 
-def _read_settings(path: Path) -> dict[str, Any]:
+def _read_settings(path: Path, *, label: str = "Claude settings") -> dict[str, Any]:
     if not path.exists():
         return {}
     try:
@@ -104,25 +160,18 @@ def _read_settings(path: Path) -> dict[str, Any]:
     except json.JSONDecodeError as exc:
         raise ValueError(f"cannot install into invalid JSON at {path}: {exc}") from exc
     if not isinstance(value, dict):
-        raise ValueError(f"Claude settings must contain a JSON object: {path}")
+        raise ValueError(f"{label} must contain a JSON object: {path}")
     return value
 
 
-def install_claude_hooks(
-    settings_path: str | Path | None = None,
-    *,
-    project: bool = False,
-    cwd: str | Path | None = None,
-    python_executable: str | None = None,
+def _write_hook_settings(
+    path: Path,
+    settings: dict[str, Any],
+    groups: dict[str, dict],
 ) -> dict[str, Any]:
-    """Install idempotent Claude Code hooks while preserving other settings."""
-    path = Path(settings_path).expanduser() if settings_path else claude_settings_path(
-        project=project, cwd=cwd
-    )
-    settings = _read_settings(path)
     _remove_existing_memoria_hooks(settings)
     hooks = settings.setdefault("hooks", {})
-    for event_name, group in memoria_hook_groups(python_executable).items():
+    for event_name, group in groups.items():
         hooks.setdefault(event_name, []).append(group)
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -140,22 +189,61 @@ def install_claude_hooks(
     }
 
 
+def install_claude_hooks(
+    settings_path: str | Path | None = None,
+    *,
+    project: bool = False,
+    cwd: str | Path | None = None,
+    python_executable: str | None = None,
+) -> dict[str, Any]:
+    """Install idempotent Claude Code hooks while preserving other settings."""
+    path = Path(settings_path).expanduser() if settings_path else claude_settings_path(
+        project=project, cwd=cwd
+    )
+    settings = _read_settings(path)
+    return _write_hook_settings(path, settings, memoria_hook_groups(python_executable))
+
+
+def install_codex_hooks(
+    settings_path: str | Path | None = None,
+    *,
+    project: bool = False,
+    cwd: str | Path | None = None,
+    python_executable: str | None = None,
+) -> dict[str, Any]:
+    """Install idempotent Codex hooks while preserving other hook config."""
+    path = Path(settings_path).expanduser() if settings_path else codex_hooks_path(
+        project=project, cwd=cwd
+    )
+    settings = _read_settings(path, label="Codex hooks config")
+    result = _write_hook_settings(path, settings, codex_hook_groups(python_executable))
+    result["trust_required"] = True
+    return result
+
+
 def doctor_report(
     *,
     settings_path: str | Path | None = None,
     project: bool = False,
     cwd: str | Path | None = None,
     db_path: str | Path = "~/.memoria/memoria.db",
+    integration: str = "claude",
 ) -> dict[str, Any]:
     """Inspect installation, project scope resolution, and storage paths."""
-    path = Path(settings_path).expanduser() if settings_path else claude_settings_path(
-        project=project, cwd=cwd
-    )
+    if integration not in {"claude", "codex"}:
+        raise ValueError(f"unsupported integration: {integration}")
+    if settings_path:
+        path = Path(settings_path).expanduser()
+    elif integration == "codex":
+        path = codex_hooks_path(project=project, cwd=cwd)
+    else:
+        path = claude_settings_path(project=project, cwd=cwd)
     checks: list[dict[str, Any]] = []
     try:
-        settings = _read_settings(path)
+        label = "Codex hooks config" if integration == "codex" else "Claude settings"
+        settings = _read_settings(path, label=label)
         hooks = settings.get("hooks", {})
-        groups = memoria_hook_groups()
+        groups = codex_hook_groups() if integration == "codex" else memoria_hook_groups()
         for event_name in groups:
             installed = any(
                 _is_memoria_handler(handler)
@@ -164,12 +252,16 @@ def doctor_report(
                 for handler in group.get("hooks", [])
             )
             checks.append({
-                "name": f"claude_{event_name}",
+                "name": f"{integration}_{event_name}",
                 "ok": installed,
                 "detail": "installed" if installed else "missing",
             })
     except ValueError as exc:
-        checks.append({"name": "claude_settings", "ok": False, "detail": str(exc)})
+        checks.append({
+            "name": f"{integration}_settings",
+            "ok": False,
+            "detail": str(exc),
+        })
 
     scope = resolve_scope("auto", cwd=cwd or Path.cwd())
     scope_path = scoped_db_path(db_path, scope)
@@ -187,6 +279,7 @@ def doctor_report(
     ])
     return {
         "ok": all(check["ok"] for check in checks),
+        "integration": integration,
         "settings_path": str(path),
         "checks": checks,
     }

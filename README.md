@@ -156,6 +156,25 @@ memoria --scope auto stats
 memoria --scope auto recall "what database does this project use" --mode speed
 ```
 
+### Codex CLI
+
+```bash
+# Install deterministic lifecycle hooks for all local projects
+memoria install codex
+memoria doctor codex
+```
+
+Restart Codex after installation, run `/hooks`, and trust the two new Memoria
+hooks. Codex requires this one-time review for non-managed command hooks. The
+installer preserves existing hooks and creates a first-install backup when
+`~/.codex/hooks.json` already exists.
+
+The behavior then matches the Claude Code integration: `UserPromptSubmit`
+injects relevant global and repository-scoped memory, while the asynchronous
+`Stop` hook captures durable preferences, project decisions, and completed
+work. Use `memoria install codex --project` to write `.codex/hooks.json` only
+for the current repository; Codex must also trust that project configuration.
+
 ### Cursor
 
 1. Add to your Cursor MCP settings (`.cursor/mcp.json` in your project root or `~/.cursor/mcp.json` globally):
@@ -224,7 +243,7 @@ recall and saving still depend on the agent following these MCP instructions.
 
 2. Add the contents of `CLAUDE.md` from the Memoria repository as MCP fallback guidance.
 
-### Codex CLI / ChatGPT / Custom agents (HTTP API)
+### ChatGPT / Custom agents (HTTP API)
 
 For tools that don't support MCP, memoria provides a REST API:
 
@@ -262,7 +281,7 @@ curl http://localhost:7437/stats
 curl http://localhost:7437/health
 ```
 
-For OpenAI Codex CLI, start the HTTP server and configure Codex to call the endpoints in its system prompt or tool definitions.
+Codex CLI users should prefer the deterministic hook integration above.
 
 ### Any tool (CLI)
 
@@ -305,8 +324,9 @@ memoria --scope auto recall "database"
 ```
 
 CLI, MCP, and HTTP retain the legacy `global` default for backward
-compatibility. Set `MEMORIA_SCOPE=auto` for repository isolation. Claude's
-lifecycle hooks always use the current project plus global user preferences.
+compatibility. Set `MEMORIA_SCOPE=auto` for repository isolation. Claude Code
+and Codex lifecycle hooks always use the current project plus global user
+preferences.
 
 ### Environment variables
 
@@ -315,7 +335,7 @@ lifecycle hooks always use the current project plus global user preferences.
 | `MEMORIA_DB` | `~/.memoria/memoria.db` | Path to SQLite database |
 | `MEMORIA_MODEL` | `all-MiniLM-L6-v2` | Sentence transformer model |
 | `MEMORIA_SCOPE` | interface-dependent | `global`, `auto`, or `project:/path` |
-| `MEMORIA_HOOK_MODE` | `speed` | Retrieval mode used by Claude hooks |
+| `MEMORIA_HOOK_MODE` | `speed` | Retrieval mode used by Claude Code and Codex hooks |
 | `MEMORIA_HOOK_STATE_DIR` | `~/.memoria/hook-state` | Pending-turn state for asynchronous saving |
 | `ANTHROPIC_API_KEY` | (none) | Optional, enables LLM entity extraction |
 

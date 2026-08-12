@@ -2,8 +2,8 @@
 
 These instructions are for agents that support MCP but do not support Memoria's
 deterministic lifecycle integration. Claude Code users should run
-`memoria install claude` instead; its hooks recall and save memory without
-depending on model compliance.
+`memoria install claude`; Codex users should run `memoria install codex`.
+Those hooks recall and save memory without depending on model compliance.
 
 ## Recall
 

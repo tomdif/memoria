@@ -97,13 +97,16 @@ def main():
 
     # install
     p_install = sub.add_parser("install", help="Install an agent integration")
-    p_install.add_argument("integration", choices=["claude"])
+    p_install.add_argument("integration", choices=["claude", "codex"])
     p_install.add_argument("--project", action="store_true", help="Install for the current project only")
     p_install.add_argument("--settings", default=None, help=argparse.SUPPRESS)
 
     # doctor
     p_doctor = sub.add_parser("doctor", help="Check Memoria integration health")
-    p_doctor.add_argument("--project", action="store_true", help="Check project-local Claude settings")
+    p_doctor.add_argument(
+        "integration", nargs="?", choices=["claude", "codex"], default="claude"
+    )
+    p_doctor.add_argument("--project", action="store_true", help="Check project-local settings")
     p_doctor.add_argument("--settings", default=None, help=argparse.SUPPRESS)
     p_doctor.add_argument("--json", action="store_true", help="Print machine-readable JSON")
 
@@ -158,16 +161,20 @@ def main():
         return
 
     if args.command == "install":
-        from .integrations import install_claude_hooks
+        from .integrations import install_claude_hooks, install_codex_hooks
 
-        result = install_claude_hooks(
+        installer = install_codex_hooks if args.integration == "codex" else install_claude_hooks
+        result = installer(
             settings_path=args.settings,
             project=args.project,
         )
-        print(f"Installed Claude Code hooks in {result['settings_path']}")
+        agent_name = "Codex" if args.integration == "codex" else "Claude Code"
+        print(f"Installed {agent_name} hooks in {result['settings_path']}")
         if result["backup_path"]:
             print(f"Backup: {result['backup_path']}")
         print("Events: UserPromptSubmit (recall), Stop (async save)")
+        if result.get("trust_required"):
+            print("Next: restart Codex, open /hooks, and trust the Memoria hooks.")
         return
 
     if args.command == "doctor":
@@ -177,6 +184,7 @@ def main():
             settings_path=args.settings,
             project=args.project,
             db_path=args.db,
+            integration=args.integration,
         )
         if args.json:
             print(json.dumps(result, indent=2))
