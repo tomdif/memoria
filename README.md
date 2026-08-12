@@ -33,15 +33,46 @@ parent-level coverage checks and tie-aware reciprocal-rank fusion.
 ## Benchmarks
 
 The latest audited run is documented in
-[the August 2026 benchmark report](benchmarks/BENCHMARK_REPORT_2026-08-11.md).
-It uses the official LongMemEval retrieval metric implementation and
-apples-to-apples local controls.
+[the August 2026 benchmark report](benchmarks/BENCHMARK_REPORT_2026-08-11.md),
+with two addenda: [matched cross-encoder controls with component
+attribution](benchmarks/CONTROLS_ADDENDUM.md) and an [end-to-end QA
+evaluation](benchmarks/QA_ADDENDUM.md). All runs use the official LongMemEval
+metric implementations and apples-to-apples local controls.
+
+### End-to-end QA accuracy (LongMemEval-S, all 500 questions)
+
+Official LongMemEval judge protocol; identical reader
+(`claude-haiku-4-5`), judge (`claude-sonnet-5`), and official prompts in both
+arms, so the delta isolates the retrieval design:
+
+| Arm | Overall | Non-abstention (470) | Abstention (30) |
+|---|---:|---:|---:|
+| **Memoria balanced → reader** | **80.8%** | **79.8%** | **96.7%** |
+| Strongest commodity control (hybrid → dual-pass cross-encoder) → reader | 75.6% | 74.7% | 90.0% |
+
+Published LongMemEval-S numbers for context (different readers and judges, so
+context rather than a leaderboard: Mem0 66.9%, Zep + gpt-4o 71.2%, LiCoMemory
+73.8%, TiMem 76.9%). The controlled claim is the within-run **+5.2 pp** from
+Memoria's retrieval design; see the [QA addendum](benchmarks/QA_ADDENDUM.md)
+for protocol, per-ability breakdown, and limitations.
+
+### Retrieval
 
 | Dataset and scope | Retriever | Recall-All@5 | Recall-All@10 | NDCG-Any@10 |
 |---|---:|---:|---:|---:|
 | LongMemEval-S official retrieval scope (419) | **Memoria balanced** | **94.3%** | **97.1%** | **0.9478** |
+|  | Hybrid + dual-pass cross-encoder (matched K=15) | 90.5% | 95.9% | 0.9250 |
+|  | Hybrid → cross-encoder | 89.5% | 97.1% | 0.9231 |
+|  | MiniLM → cross-encoder | 87.6% | 95.2% | 0.9163 |
 |  | MiniLM dense | 85.4% | 93.8% | 0.8785 |
+|  | BM25 → cross-encoder | 82.6% | 85.4% | 0.8692 |
 |  | Flat BM25 | 74.2% | 82.6% | 0.7962 |
+
+The cross-encoder control rows use the same reranker model and candidate depth
+as Memoria's own pipeline, so the +3.8 pp gap over the strongest control is
+attributable to Memoria's design rather than commodity reranking. Component
+attribution (the 0.40·CE + 0.60·stage-1 score fusion is the dominant term,
++3.1 pp) is in the [controls addendum](benchmarks/CONTROLS_ADDENDUM.md).
 | PerLTQA English v2, strict full scope (8,593) | **Memoria windowed** | **84.4%** | — | — |
 |  | Windowed BM25 | 80.5% | — | — |
 |  | Windowed MiniLM | 71.9% | — | — |
@@ -50,11 +81,11 @@ apples-to-apples local controls.
 |  | Memoria legacy session index | 50.9% | 68.4% | 0.5459 |
 |  | MiniLM dense | 41.5% | 55.7% | 0.4612 |
 
-These numbers evaluate benchmark-facing raw-conversation retrieval. They do not
-exercise Memoria's conversation ingestion, entity extraction, knowledge-graph
-construction, consolidation, or final answer generation. LongMemEval's official
-end-to-end score and LoCoMo's headline score are generated-answer metrics, so
-the retrieval results above must not be presented as QA accuracy. The LoCoMo
+These numbers evaluate benchmark-facing raw-conversation retrieval plus, for
+the QA table, official-protocol answer generation. They do not exercise
+Memoria's conversation ingestion, entity extraction, knowledge-graph
+construction, or consolidation. Retrieval results must not be presented as QA
+accuracy — the QA table above is the only generated-answer metric. The LoCoMo
 windowed LoCoMo profile was developed after inspecting the public benchmark's
 legacy failures, so it is a post-hoc engineering result rather than an unbiased
 held-out estimate. PerLTQA English v2 was evaluated afterward as an untouched
@@ -74,6 +105,16 @@ python download_data.py
 python longmemeval_final.py --mode balanced --scope official
 python longmemeval_final.py --scope official --retriever flat-bm25
 python longmemeval_final.py --scope official --retriever minilm
+
+# Matched cross-encoder controls + component-attribution ablation
+python controls_ce.py
+python controls_ablation.py
+
+# End-to-end QA (both arms; needs ANTHROPIC_API_KEY, ~$17 total)
+python longmemeval_qa.py --stage retrieve
+python longmemeval_qa.py --stage qa --arm memoria
+python longmemeval_qa.py --stage qa --arm hybrid-ce-dual
+python longmemeval_qa.py --stage report
 
 # LoCoMo session-evidence diagnostic
 python locomo_bench.py --mode balanced --profile windowed
