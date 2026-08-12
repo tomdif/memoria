@@ -85,6 +85,50 @@ def main():
     # stats
     sub.add_parser("stats", help="Show system statistics")
 
+    # storage
+    p_storage = sub.add_parser("storage", help="Inspect and maintain memory storage")
+    storage_sub = p_storage.add_subparsers(dest="storage_action", required=True)
+    p_storage_status = storage_sub.add_parser("status", help="Show database and hook-state usage")
+    p_storage_status.add_argument(
+        "--all-scopes", action="store_true", help="Include global and every project database"
+    )
+    p_storage_status.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+    p_storage_retain = storage_sub.add_parser(
+        "retain", help="Archive old raw provenance and remove its local copy"
+    )
+    p_storage_retain.add_argument("--older-than-days", type=float, default=None)
+    p_storage_retain.add_argument("--keep-latest", type=int, default=None)
+    p_storage_retain.add_argument("--limit", type=int, default=None)
+    p_storage_retain.add_argument("--archive", default=None, help="JSONL archive path")
+    p_storage_retain.add_argument(
+        "--apply", action="store_true", help="Apply the archive and deletion; default is dry-run"
+    )
+    p_storage_retain.add_argument("--json", action="store_true")
+    p_storage_restore = storage_sub.add_parser(
+        "restore", help="Validate or restore a raw-provenance JSONL archive"
+    )
+    p_storage_restore.add_argument("archive", help="Archive JSONL path")
+    p_storage_restore.add_argument("--limit", type=int, default=None)
+    p_storage_restore.add_argument(
+        "--apply", action="store_true", help="Restore records; default is validation-only"
+    )
+    p_storage_restore.add_argument("--json", action="store_true")
+    p_storage_compact = storage_sub.add_parser(
+        "compact", help="Checkpoint WAL and optionally rebuild the database"
+    )
+    p_storage_compact.add_argument(
+        "--vacuum", action="store_true", help="Run SQLite VACUUM after checkpointing"
+    )
+    p_storage_compact.add_argument(
+        "--stale-pending-days", type=float, default=7,
+        help="Find temporary hook prompts older than this many days",
+    )
+    p_storage_compact.add_argument(
+        "--apply-stale-cleanup", action="store_true",
+        help="Delete identified stale temporary hook prompts",
+    )
+    p_storage_compact.add_argument("--json", action="store_true")
+
     # compress
     p_comp = sub.add_parser("compress", help="Compress memory into a token budget")
     p_comp.add_argument("-b", "--budget", type=int, default=200, help="Token budget")
@@ -215,7 +259,12 @@ def main():
 
     llm_call = None if args.no_llm else make_llm_call()
 
-    with Memoria(db_path=args.db, llm_call=llm_call, scope=args.scope) as m:
+    with Memoria(
+        db_path=args.db,
+        llm_call=llm_call,
+        scope=args.scope,
+        enable_embeddings=args.command != "storage",
+    ) as m:
         if args.command == "remember":
             result = m.remember(args.text, role=args.role, session_id=args.session)
             print(json.dumps(result, indent=2, default=str))
@@ -255,6 +304,39 @@ def main():
             print(f"Screening radius: {result['screening_radius']} hops")
             if result["eigenvalues"]:
                 print(f"Eigenvalues: {[f'{e:.4f}' for e in result['eigenvalues'][:6]]}")
+
+        elif args.command == "storage":
+            if args.storage_action == "status":
+                result = m.storage_status(all_scopes=args.all_scopes)
+            elif args.storage_action == "retain":
+                if args.older_than_days is None and args.keep_latest is None:
+                    p_storage_retain.error(
+                        "provide --older-than-days, --keep-latest, or both"
+                    )
+                result = m.retain_raw_history(
+                    older_than_days=args.older_than_days,
+                    keep_latest=args.keep_latest,
+                    limit=args.limit,
+                    archive_path=args.archive,
+                    apply=args.apply,
+                )
+            elif args.storage_action == "restore":
+                result = m.restore_raw_history(
+                    args.archive,
+                    limit=args.limit,
+                    apply=args.apply,
+                )
+            else:
+                result = m.maintain_storage(
+                    vacuum=args.vacuum,
+                    stale_pending_days=args.stale_pending_days,
+                    apply_stale_cleanup=args.apply_stale_cleanup,
+                )
+
+            if args.json:
+                print(json.dumps(result, indent=2, default=str))
+            else:
+                print(json.dumps(result, indent=2, default=str))
 
         elif args.command == "compress":
             result = m.compress(budget_tokens=args.budget)

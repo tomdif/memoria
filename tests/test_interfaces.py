@@ -26,6 +26,22 @@ class FakeMemoria:
     def graph_stats(self):
         return {"entities": 1}
 
+    def storage_status(self, *, all_scopes=False):
+        self.calls.append(("storage", "status", all_scopes))
+        return {"database": {"physical_bytes": 1024}}
+
+    def retain_raw_history(self, **kwargs):
+        self.calls.append(("storage", "retain", kwargs))
+        return {"dry_run": not kwargs.get("apply", False), "candidates": 2}
+
+    def maintain_storage(self, **kwargs):
+        self.calls.append(("storage", "maintain", kwargs))
+        return {"database": {"vacuumed": kwargs.get("vacuum", False)}}
+
+    def restore_raw_history(self, archive_path, **kwargs):
+        self.calls.append(("storage", "restore", archive_path, kwargs))
+        return {"dry_run": not kwargs.get("apply", False), "candidates": 2}
+
     def entity_context(self, name):
         return {"entity": {"name": name}}
 
@@ -110,6 +126,29 @@ def test_mcp_cleanup_dispatches_all_arguments(monkeypatch):
     )]
 
 
+def test_mcp_storage_retention_is_dry_run_by_default(monkeypatch):
+    fake = FakeMemoria()
+    monkeypatch.setattr(mcp_module, "_memoria", fake)
+
+    result = mcp_module.handle_tool(
+        "memoria_storage",
+        {"action": "retain", "older_than_days": 90},
+    )
+
+    assert result == {"dry_run": True, "candidates": 2}
+    assert fake.calls == [(
+        "storage",
+        "retain",
+        {
+            "older_than_days": 90,
+            "keep_latest": None,
+            "limit": None,
+            "archive_path": None,
+            "apply": False,
+        },
+    )]
+
+
 def test_http_recall_dispatches_mode_and_top_k(monkeypatch):
     fake = FakeMemoria()
     monkeypatch.setattr(http_module, "_memoria", fake)
@@ -138,3 +177,25 @@ def test_http_recall_dispatches_mode_and_top_k(monkeypatch):
 
     assert payload == {"status": "ok", "results": "remembered: database"}
     assert fake.calls == [("recall", "database", 3, "quality")]
+
+
+def test_http_storage_status_supports_all_scopes(monkeypatch):
+    fake = FakeMemoria()
+    monkeypatch.setattr(http_module, "_memoria", fake)
+    server = HTTPServer(("127.0.0.1", 0), MemoriaHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    try:
+        with urlopen(
+            f"http://127.0.0.1:{server.server_port}/storage?all_scopes=true",
+            timeout=2,
+        ) as response:
+            payload = json.loads(response.read())
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+    assert payload == {"database": {"physical_bytes": 1024}}
+    assert fake.calls == [("storage", "status", True)]

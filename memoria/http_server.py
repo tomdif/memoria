@@ -17,6 +17,10 @@ Endpoints:
   GET  /history/:name — temporal history
   POST /consolidate — run consolidation
   GET  /stats       — system stats
+  GET  /storage     — storage usage and soft-quota status
+  POST /storage/retain — archive old raw provenance (dry-run by default)
+  POST /storage/restore — validate or restore archived raw provenance
+  POST /storage/maintain — checkpoint/compact and clean temporary state
   POST /compress    — compress to token budget
   GET  /health      — health check
 """
@@ -30,6 +34,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs, unquote
 
 from .core import Memoria
+from . import __version__
 
 
 _memoria: Memoria | None = None
@@ -79,10 +84,17 @@ class MemoriaHandler(BaseHTTPRequestHandler):
             m = get_memoria()
 
             if not parts or parts[0] == "health":
-                self._send_json({"status": "ok", "version": "0.1.0"})
+                self._send_json({"status": "ok", "version": __version__})
 
             elif parts[0] == "stats":
                 self._send_json(m.graph_stats())
+
+            elif parts[0] == "storage":
+                qs = parse_qs(urlparse(self.path).query)
+                all_scopes = qs.get("all_scopes", ["false"])[0].casefold() in {
+                    "1", "true", "yes"
+                }
+                self._send_json(m.storage_status(all_scopes=all_scopes))
 
             elif parts[0] == "entity" and len(parts) >= 2:
                 name = unquote(parts[1])
@@ -148,6 +160,35 @@ class MemoriaHandler(BaseHTTPRequestHandler):
                     "compression_ratio": result.compression_ratio,
                 })
 
+            elif parts[0] == "storage" and len(parts) >= 2 and parts[1] == "retain":
+                result = m.retain_raw_history(
+                    older_than_days=body.get("older_than_days"),
+                    keep_latest=body.get("keep_latest"),
+                    limit=body.get("limit"),
+                    archive_path=body.get("archive_path"),
+                    apply=body.get("apply", False),
+                )
+                self._send_json(result)
+
+            elif parts[0] == "storage" and len(parts) >= 2 and parts[1] == "maintain":
+                result = m.maintain_storage(
+                    vacuum=body.get("vacuum", False),
+                    stale_pending_days=body.get("stale_pending_days", 7),
+                    apply_stale_cleanup=body.get("apply_stale_cleanup", False),
+                )
+                self._send_json(result)
+
+            elif parts[0] == "storage" and len(parts) >= 2 and parts[1] == "restore":
+                if not body.get("archive_path"):
+                    self._send_json({"error": "Missing required field: archive_path"}, 400)
+                    return
+                result = m.restore_raw_history(
+                    body["archive_path"],
+                    limit=body.get("limit"),
+                    apply=body.get("apply", False),
+                )
+                self._send_json(result)
+
             else:
                 self._send_json({"error": f"Unknown endpoint: {self.path}"}, 404)
 
@@ -166,6 +207,7 @@ def run_http_server(port: int = 7437, host: str = "127.0.0.1"):
     print(f"  POST /recall      — retrieve memories")
     print(f"  GET  /entity/:name — entity details")
     print(f"  GET  /stats       — system stats")
+    print(f"  GET  /storage     — storage usage")
     print(f"  GET  /health      — health check")
     print(f"\nPress Ctrl+C to stop.")
     try:

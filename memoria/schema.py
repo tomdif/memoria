@@ -42,7 +42,7 @@ CREATE INDEX IF NOT EXISTS idx_triples_relation ON triples(relation_type);
 CREATE INDEX IF NOT EXISTS idx_triples_confidence ON triples(confidence);
 CREATE INDEX IF NOT EXISTS idx_triples_valid ON triples(valid_from, valid_until);
 
--- Raw conversation logs (Layer 1 — ground truth, never mutated)
+-- Raw conversation logs (Layer 1 — ground truth while retained locally)
 CREATE TABLE IF NOT EXISTS conversations (
     id TEXT PRIMARY KEY,
     timestamp REAL NOT NULL,
@@ -64,6 +64,17 @@ CREATE VIRTUAL TABLE IF NOT EXISTS conversations_fts USING fts5(
 
 -- Triggers to keep FTS in sync
 CREATE TRIGGER IF NOT EXISTS conversations_ai AFTER INSERT ON conversations BEGIN
+    INSERT INTO conversations_fts(rowid, content) VALUES (new.rowid, new.content);
+END;
+
+CREATE TRIGGER IF NOT EXISTS conversations_ad AFTER DELETE ON conversations BEGIN
+    INSERT INTO conversations_fts(conversations_fts, rowid, content)
+    VALUES ('delete', old.rowid, old.content);
+END;
+
+CREATE TRIGGER IF NOT EXISTS conversations_au AFTER UPDATE ON conversations BEGIN
+    INSERT INTO conversations_fts(conversations_fts, rowid, content)
+    VALUES ('delete', old.rowid, old.content);
     INSERT INTO conversations_fts(rowid, content) VALUES (new.rowid, new.content);
 END;
 

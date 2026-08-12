@@ -49,6 +49,7 @@ _SECRET_CUES = re.compile(
 _RUNTIME_EMBEDDER: Embedder | None = None
 _RUNTIME_RERANKER = None
 _RUNTIME_MODEL_NAME: str | None = None
+_LAST_STATE_CLEANUP = 0.0
 
 
 def _runtime_embedder() -> Embedder:
@@ -74,6 +75,24 @@ def _state_dir() -> Path:
     return path
 
 
+def _clean_stale_state_once() -> None:
+    """Bound abandoned temporary prompts without touching durable memory."""
+    global _LAST_STATE_CLEANUP
+    now = time.time()
+    if now - _LAST_STATE_CLEANUP < 86400:
+        return
+    _LAST_STATE_CLEANUP = now
+    try:
+        ttl_days = float(os.environ.get("MEMORIA_PENDING_TTL_DAYS", "7"))
+        if ttl_days < 0:
+            return
+        from .maintenance import clean_stale_pending
+
+        clean_stale_pending(_state_dir(), older_than_days=ttl_days, dry_run=False)
+    except (OSError, ValueError):
+        pass
+
+
 def _pending_prefix(session_id: str) -> str:
     digest = hashlib.sha256(session_id.encode("utf-8")).hexdigest()
     return digest
@@ -90,6 +109,7 @@ def _read_event(stream: TextIO | None = None) -> dict[str, Any]:
 
 
 def _save_pending_prompt(event: dict[str, Any]) -> None:
+    _clean_stale_state_once()
     session_id = str(event.get("session_id") or "")
     prompt = str(event.get("prompt") or "").strip()
     if not session_id or not prompt:
@@ -358,10 +378,14 @@ def main() -> None:
             print(json.dumps({} if command == "stop" and agent == "codex" else output))
     except Exception as exc:
         # Preserve pending prompts and saving even when the daemon cannot run.
-        if command == "user-prompt" and event:
-            _save_pending_prompt(event)
-        elif command == "stop" and event:
-            handle_stop(event)
+        try:
+            if command == "user-prompt" and event:
+                _save_pending_prompt(event)
+            elif command == "stop" and event:
+                handle_stop(event)
+        except Exception as fallback_exc:
+            if os.environ.get("MEMORIA_HOOK_DEBUG") == "1":
+                print(f"[memoria hook] fallback failed: {fallback_exc}", file=sys.stderr)
         print(f"[memoria hook] {exc}", file=sys.stderr)
         # Hooks fail open: memory availability never blocks the user prompt.
         raise SystemExit(0)

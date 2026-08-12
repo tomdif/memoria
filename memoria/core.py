@@ -12,6 +12,7 @@ Provides the unified API that the MCP server and CLI consume.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import time
 from pathlib import Path
@@ -25,6 +26,15 @@ from .consolidator import Consolidator
 from .compressor import compress, budget_report, CompressedMemory
 from .embeddings import Embedder
 from .scopes import MemoryScope, resolve_scope, scoped_db_path
+from .maintenance import (
+    all_database_usage,
+    clean_stale_pending,
+    compact_database,
+    database_usage,
+    default_archive_path,
+    hard_quota_bytes,
+    pending_state_usage,
+)
 
 
 class Memoria:
@@ -84,6 +94,15 @@ class Memoria:
 
         This is the primary write path. Returns extraction stats.
         """
+        hard_limit = hard_quota_bytes()
+        if hard_limit is not None:
+            usage = database_usage(self.db, self.db_path)
+            if usage["physical_bytes"] >= hard_limit:
+                raise RuntimeError(
+                    "MEMORIA_HARD_MAX_DB_MB reached for this scope; "
+                    "run `memoria storage status` and retention maintenance."
+                )
+
         # L1: Store raw
         stored_metadata = dict(metadata or {})
         stored_metadata.setdefault("scope", self.scope.scope_id)
@@ -129,6 +148,14 @@ class Memoria:
             stats["fallback_note"] = True
         stats["conversation_id"] = conv_id
         stats["scope"] = self.scope.scope_id
+        if os.environ.get("MEMORIA_MAX_DB_MB"):
+            quota = database_usage(self.db, self.db_path)
+            if quota["quota_exceeded"]:
+                stats["storage_warning"] = {
+                    "quota_bytes": quota["quota_bytes"],
+                    "physical_bytes": quota["physical_bytes"],
+                    "message": "MEMORIA_MAX_DB_MB soft quota exceeded; run `memoria storage status`.",
+                }
         return stats
 
     def recall(self, query: str, top_k: int = 20, as_of: float | None = None,
@@ -195,6 +222,108 @@ class Memoria:
         base["scope"] = self.scope.scope_id
         base["scope_label"] = self.scope.label
         return base
+
+    def storage_status(self, *, all_scopes: bool = False) -> dict:
+        """Report current-scope database usage and temporary hook state."""
+        state_dir = Path(
+            os.environ.get("MEMORIA_HOOK_STATE_DIR", "~/.memoria/hook-state")
+        ).expanduser()
+        current = database_usage(self.db, self.db_path)
+        result = {
+            "scope": self.scope.scope_id,
+            "database": current,
+            "pending_hook_state": pending_state_usage(state_dir),
+        }
+        if all_scopes:
+            result["all_scopes"] = all_database_usage(
+                self.base_db_path,
+                current_path=self.db_path,
+                current_usage=current,
+            )
+        return result
+
+    def retain_raw_history(
+        self,
+        *,
+        older_than_days: float | None = None,
+        keep_latest: int | None = None,
+        limit: int | None = None,
+        archive_path: str | Path | None = None,
+        apply: bool = False,
+    ) -> dict:
+        """Preview or archive old raw provenance while preserving graph facts."""
+        if older_than_days is not None and older_than_days < 0:
+            raise ValueError("older_than_days must be non-negative")
+        cutoff = (
+            time.time() - older_than_days * 86400
+            if older_than_days is not None
+            else None
+        )
+        candidates = self.store.retention_candidates(
+            older_than=cutoff,
+            keep_latest=keep_latest,
+            limit=limit,
+        )
+        raw_bytes = sum(len(item["content"].encode("utf-8")) for item in candidates)
+        result = {
+            "dry_run": not apply,
+            "candidates": len(candidates),
+            "raw_content_bytes": raw_bytes,
+            "archive_path": str(
+                Path(archive_path).expanduser()
+                if archive_path
+                else default_archive_path(self.db_path)
+            ),
+            "graph_facts_preserved": True,
+        }
+        if not apply or not candidates:
+            return result
+        archived = self.store.archive_and_delete(candidates, result["archive_path"])
+        result.update(archived)
+        return result
+
+    def maintain_storage(
+        self,
+        *,
+        vacuum: bool = False,
+        stale_pending_days: float | None = None,
+        apply_stale_cleanup: bool = False,
+    ) -> dict:
+        """Checkpoint storage, optionally vacuum, and inspect stale hook state."""
+        result = {"database": compact_database(self.db, self.db_path, vacuum=vacuum)}
+        if stale_pending_days is not None:
+            state_dir = Path(
+                os.environ.get("MEMORIA_HOOK_STATE_DIR", "~/.memoria/hook-state")
+            ).expanduser()
+            result["stale_pending"] = clean_stale_pending(
+                state_dir,
+                older_than_days=stale_pending_days,
+                dry_run=not apply_stale_cleanup,
+            )
+        return result
+
+    def restore_raw_history(
+        self,
+        archive_path: str | Path,
+        *,
+        limit: int | None = None,
+        apply: bool = False,
+    ) -> dict:
+        """Validate and optionally restore a raw-provenance JSONL archive."""
+        rows = self.store.read_archive(archive_path, limit=limit)
+        existing = 0
+        for row in rows:
+            if self.store.get(str(row["id"])) is not None:
+                existing += 1
+        result = {
+            "dry_run": not apply,
+            "archive_path": str(Path(archive_path).expanduser()),
+            "candidates": len(rows),
+            "already_present": existing,
+        }
+        if apply:
+            result.update(self.store.restore_archive(rows))
+        return result
 
     def entity_context(self, entity_name: str) -> dict:
         """Get everything known about an entity — current facts, history, neighbors."""

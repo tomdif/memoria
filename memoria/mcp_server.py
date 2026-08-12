@@ -13,6 +13,7 @@ import sys
 from typing import Any
 
 from .core import Memoria
+from . import __version__
 
 
 # Lazy-init the memoria instance
@@ -135,6 +136,30 @@ TOOLS = [
         },
     },
     {
+        "name": "memoria_storage",
+        "description": "Inspect or explicitly maintain Memoria storage. Retention is "
+                       "archive-first and dry-run by default; graph facts remain available.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["status", "retain", "restore", "maintain"],
+                    "default": "status",
+                },
+                "older_than_days": {"type": "number"},
+                "keep_latest": {"type": "integer"},
+                "limit": {"type": "integer"},
+                "archive_path": {"type": "string"},
+                "apply": {"type": "boolean", "default": False},
+                "vacuum": {"type": "boolean", "default": False},
+                "stale_pending_days": {"type": "number", "default": 7},
+                "apply_stale_cleanup": {"type": "boolean", "default": False},
+                "all_scopes": {"type": "boolean", "default": False},
+            },
+        },
+    },
+    {
         "name": "memoria_compress",
         "description": "Compress full memory state into a token budget using spectral ranking. "
                        "Returns the most structurally important facts that fit within the budget. "
@@ -240,6 +265,35 @@ def handle_tool(name: str, arguments: dict[str, Any]) -> dict:
     elif name == "memoria_stats":
         return m.graph_stats()
 
+    elif name == "memoria_storage":
+        action = arguments.get("action", "status")
+        if action == "status":
+            return m.storage_status(all_scopes=arguments.get("all_scopes", False))
+        if action == "retain":
+            return m.retain_raw_history(
+                older_than_days=arguments.get("older_than_days"),
+                keep_latest=arguments.get("keep_latest"),
+                limit=arguments.get("limit"),
+                archive_path=arguments.get("archive_path"),
+                apply=arguments.get("apply", False),
+            )
+        if action == "restore":
+            archive_path = arguments.get("archive_path")
+            if not archive_path:
+                return {"error": "archive_path is required for restore"}
+            return m.restore_raw_history(
+                archive_path,
+                limit=arguments.get("limit"),
+                apply=arguments.get("apply", False),
+            )
+        if action == "maintain":
+            return m.maintain_storage(
+                vacuum=arguments.get("vacuum", False),
+                stale_pending_days=arguments.get("stale_pending_days", 7),
+                apply_stale_cleanup=arguments.get("apply_stale_cleanup", False),
+            )
+        return {"error": f"Unknown storage action: {action}"}
+
     elif name == "memoria_compress":
         result = m.compress(budget_tokens=arguments.get("budget_tokens", 200))
         return {
@@ -292,7 +346,7 @@ def run_mcp_server():
                 "result": {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {"tools": {}},
-                    "serverInfo": {"name": "memoria", "version": "0.1.0"},
+                    "serverInfo": {"name": "memoria", "version": __version__},
                 },
             }
 

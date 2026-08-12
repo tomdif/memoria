@@ -22,3 +22,6 @@ Those hooks recall and save memory without depending on model compliance.
   code blocks, or ephemeral task details.
 - Do not conceal memory behavior if the user asks about it. Respect requests to
   inspect, correct, or delete stored memory.
+- Use `memoria_storage` with `action: status` when capacity matters. Retention,
+  restore, vacuuming, and cleanup that changes data require explicit user
+  direction; leave `apply` false when previewing.

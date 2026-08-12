@@ -1,4 +1,4 @@
-"""User-local daemon for low-latency Claude Code memory hooks."""
+"""User-local daemon for low-latency Claude Code and Codex memory hooks."""
 
 from __future__ import annotations
 
