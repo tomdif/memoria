@@ -61,6 +61,18 @@ READER_TEMPLATE = (
     "History Chats:\n\n{}\n\nCurrent Date: {}\nQuestion: {}\nAnswer:"
 )
 
+# Official CoT variant from run_generation.py (cot=true, no fact expansion).
+# Per the official pipeline the full step-by-step response is the hypothesis
+# passed to the judge — no final-answer extraction.
+READER_TEMPLATE_COT = (
+    "I will give you several history chats between you and a user. Please "
+    "answer the question based on the relevant chat history. Answer the "
+    "question step by step: first extract all the relevant information, and "
+    "then reason over the information to get the answer.\n\n\n"
+    "History Chats:\n\n{}\n\nCurrent Date: {}\nQuestion: {}\n"
+    "Answer (step by step):"
+)
+
 
 def api_key() -> str:
     return (Path.home() / ".anthropic_api_key").read_text().strip()
@@ -123,8 +135,8 @@ def retrieval_path(arm):
     return BENCH_DIR / f"qa_retrieval_{arm}.json"
 
 
-def results_path(arm):
-    return BENCH_DIR / f"results_qa_{arm}.jsonl"
+def results_path(arm, cot=False):
+    return BENCH_DIR / f"results_qa{'_cot' if cot else ''}_{arm}.jsonl"
 
 
 # ---------------------------------------------------------------------------
@@ -198,7 +210,7 @@ def stage_retrieve(max_n):
 # Stage: qa (reader + judge, async, resumable)
 # ---------------------------------------------------------------------------
 
-def build_reader_prompt(q, retrieved_sids, meta):
+def build_reader_prompt(q, retrieved_sids, meta, cot=False):
     parts = []
     for i, sid in enumerate(retrieved_sids):
         date, sess = meta[sid]
@@ -209,10 +221,11 @@ def build_reader_prompt(q, retrieved_sids, meta):
             "\n### Session {}:\nSession Date: {}\nSession Content:\n{}\n".format(
                 i + 1, date, sess_string))
     history = "".join(parts)
-    return READER_TEMPLATE.format(history, q["question_date"], q["question"])
+    template = READER_TEMPLATE_COT if cot else READER_TEMPLATE
+    return template.format(history, q["question_date"], q["question"])
 
 
-async def qa_one(client, sem, q, retrieved, record_f, lock, totals):
+async def qa_one(client, sem, q, retrieved, record_f, lock, totals, cot=False):
     from retrieval_metrics import recall_all_at_k
 
     import anthropic
@@ -220,13 +233,15 @@ async def qa_one(client, sem, q, retrieved, record_f, lock, totals):
     qid = q["question_id"]
     is_abs = "_abs" in qid
     _, _, _, meta = session_maps(q)
-    prompt = build_reader_prompt(q, retrieved, meta)
+    prompt = build_reader_prompt(q, retrieved, meta, cot=cot)
 
     async with sem:
         for attempt in range(6):
             try:
                 reader_resp = await client.messages.create(
-                    model=READER_MODEL, max_tokens=1024, temperature=0,
+                    model=READER_MODEL,
+                    max_tokens=2048 if cot else 1024,
+                    temperature=0,
                     messages=[{"role": "user", "content": prompt}],
                 )
                 break
@@ -298,21 +313,21 @@ def run_cost(totals):
             + totals["judge_in"] * j_in + totals["judge_out"] * j_out) / 1e6
 
 
-async def stage_qa(arm, max_n, concurrency):
+async def stage_qa(arm, max_n, concurrency, cot=False):
     from anthropic import AsyncAnthropic
 
     data = load_data(max_n)
     retrieval = json.loads(retrieval_path(arm).read_text())
 
     done = set()
-    rp = results_path(arm)
+    rp = results_path(arm, cot)
     if rp.exists():
         for line in rp.read_text().splitlines():
             if line.strip():
                 done.add(json.loads(line)["question_id"])
     todo = [q for q in data if q["question_id"] in retrieval
             and q["question_id"] not in done]
-    print(f"arm={arm}: {len(done)} already done, {len(todo)} to run")
+    print(f"arm={arm} cot={cot}: {len(done)} already done, {len(todo)} to run")
     if not todo:
         return
 
@@ -323,7 +338,8 @@ async def stage_qa(arm, max_n, concurrency):
     start = time.time()
     with open(rp, "a") as record_f:
         await asyncio.gather(*[
-            qa_one(client, sem, q, retrieval[q["question_id"]], record_f, lock, totals)
+            qa_one(client, sem, q, retrieval[q["question_id"]], record_f, lock,
+                   totals, cot=cot)
             for q in todo
         ])
     print(f"arm={arm}: ran {totals['n']} rows in {time.time()-start:.0f}s, "
@@ -337,17 +353,16 @@ async def stage_qa(arm, max_n, concurrency):
 # ---------------------------------------------------------------------------
 
 def stage_report(arms):
-    for arm in arms:
-        rp = results_path(arm)
+    for arm, cot in [(a, c) for c in (False, True) for a in arms]:
+        rp = results_path(arm, cot)
         if not rp.exists():
-            print(f"[{arm}] no results file")
             continue
         rows = [json.loads(l) for l in rp.read_text().splitlines() if l.strip()]
         n = len(rows)
         overall = np.mean([r["autoeval_label"] for r in rows])
         abst = [r for r in rows if r["is_abstention"]]
         nonabst = [r for r in rows if not r["is_abstention"]]
-        print(f"\n=== {arm} (n={n}) ===")
+        print(f"\n=== {arm}{' [CoT]' if cot else ''} (n={n}) ===")
         print(f"overall QA accuracy:        {overall*100:.1f}%")
         if nonabst:
             print(f"non-abstention accuracy:    "
@@ -386,6 +401,8 @@ def main():
     parser.add_argument("--arm", choices=["memoria", "hybrid-ce-dual"])
     parser.add_argument("--max", type=int, default=None)
     parser.add_argument("--concurrency", type=int, default=12)
+    parser.add_argument("--cot", action="store_true",
+                        help="Use the official CoT reading prompt")
     args = parser.parse_args()
 
     if args.stage == "retrieve":
@@ -393,7 +410,7 @@ def main():
     elif args.stage == "qa":
         if not args.arm:
             parser.error("--arm required for qa stage")
-        asyncio.run(stage_qa(args.arm, args.max, args.concurrency))
+        asyncio.run(stage_qa(args.arm, args.max, args.concurrency, cot=args.cot))
     else:
         stage_report(["memoria", "hybrid-ce-dual"])
 

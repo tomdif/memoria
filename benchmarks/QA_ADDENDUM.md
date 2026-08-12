@@ -94,10 +94,37 @@ matched commodity control under an identical reader, judge, and prompts — is
 the controlled claim: **+5.2 pp end-to-end from Memoria's retrieval design**.
 The cross-paper table is context, not a leaderboard placement.
 
+## CoT reader variant (2026-08-12, second run)
+
+Same protocol with the official chain-of-thought reading template from
+`run_generation.py` (`--cot` flag on the runner; reader max_tokens 2048,
+cached retrievals reused). Raw records: `results_qa_cot_{arm}.jsonl`.
+
+| Metric | Memoria plain | Memoria CoT | Control plain | Control CoT |
+|---|---:|---:|---:|---:|
+| **Overall (500)** | 80.8% | **86.0%** | 75.6% | 82.8% |
+| Non-abstention (470) | 79.8% | 85.7% | 74.7% | 82.6% |
+| Abstention (30) | 96.7% | 90.0% | 90.0% | 86.7% |
+
+Per ability, Memoria plain → CoT: temporal reasoning 70.9 → 83.5 (**+12.6 pp**
+— the largest reader-failure pool largely closes, as the LongMemEval paper
+predicts for CoT), knowledge-update 79.2 → 87.5, multi-session 76.0 → 80.2,
+single-session preference 60.0 → 63.3 (still the weakest type; rubric
+satisfaction, not reasoning), single-session user/assistant unchanged at
+100.0/96.4.
+
+Two honest observations. First, CoT costs abstention accuracy in both arms
+(Memoria 96.7 → 90.0): reasoning talks the model into answering unanswerable
+questions. Second, the commodity control gains more from CoT than Memoria does
+(+7.2 vs +5.2 pp), narrowing the retrieval-design delta from +5.2 to +3.2 pp —
+consistent with a stronger reading strategy partially compensating for worse
+context. The controlled claim survives at every rung: retrieval +3.8 pp,
+plain-reader QA +5.2 pp, CoT-reader QA +3.2 pp.
+
 ## Limitations
 
-1. Single reader, single seed, no CoT; the reader prompt is the official
-   plain template. Numbers move with reader choice.
+1. Single reader, single seed; plain and CoT variants of the official reader
+   template. Numbers move with reader choice.
 2. Judge is Claude, not the official gpt-4o judge, and temperature could not
    be pinned to 0 on the judge model. Judge agreement with the official judge
    was not measured.

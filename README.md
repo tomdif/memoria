@@ -45,16 +45,17 @@ Official LongMemEval judge protocol; identical reader
 (`claude-haiku-4-5`), judge (`claude-sonnet-5`), and official prompts in both
 arms, so the delta isolates the retrieval design:
 
-| Arm | Overall | Non-abstention (470) | Abstention (30) |
-|---|---:|---:|---:|
-| **Memoria balanced → reader** | **80.8%** | **79.8%** | **96.7%** |
-| Strongest commodity control (hybrid → dual-pass cross-encoder) → reader | 75.6% | 74.7% | 90.0% |
+| Arm | Plain reader | CoT reader |
+|---|---:|---:|
+| **Memoria balanced → reader** | **80.8%** | **86.0%** |
+| Strongest commodity control (hybrid → dual-pass cross-encoder) → reader | 75.6% | 82.8% |
 
 Published LongMemEval-S numbers for context (different readers and judges, so
 context rather than a leaderboard: Mem0 66.9%, Zep + gpt-4o 71.2%, LiCoMemory
-73.8%, TiMem 76.9%). The controlled claim is the within-run **+5.2 pp** from
-Memoria's retrieval design; see the [QA addendum](benchmarks/QA_ADDENDUM.md)
-for protocol, per-ability breakdown, and limitations.
+73.8%, TiMem 76.9%). The controlled claim is the within-run delta from
+Memoria's retrieval design — +5.2 pp with the plain reader, +3.2 pp with the
+CoT reader; see the [QA addendum](benchmarks/QA_ADDENDUM.md) for protocol,
+per-ability breakdowns, abstention accuracy, and limitations.
 
 ### Retrieval
 
