@@ -45,7 +45,13 @@ def get_memoria() -> Memoria:
         model = os.environ.get("MEMORIA_MODEL", "all-MiniLM-L6-v2")
         use_llm = os.environ.get("MEMORIA_NO_LLM", "").lower() not in ("1", "true", "yes")
         llm_call = _make_llm_call() if use_llm else None
-        _memoria = Memoria(db_path=db_path, model_name=model, llm_call=llm_call)
+        scope = os.environ.get("MEMORIA_SCOPE", "global")
+        _memoria = Memoria(
+            db_path=db_path,
+            model_name=model,
+            llm_call=llm_call,
+            scope=scope,
+        )
     return _memoria
 
 

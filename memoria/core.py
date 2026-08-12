@@ -24,6 +24,7 @@ from .retriever import Retriever, RetrievalMode, RetrievalResponse, format_resul
 from .consolidator import Consolidator
 from .compressor import compress, budget_report, CompressedMemory
 from .embeddings import Embedder
+from .scopes import MemoryScope, resolve_scope, scoped_db_path
 
 
 class Memoria:
@@ -34,6 +35,10 @@ class Memoria:
         db_path: str | Path = "~/.memoria/memoria.db",
         model_name: str = "all-MiniLM-L6-v2",
         llm_call=None,
+        scope: MemoryScope | str | None = None,
+        scope_cwd: str | Path | None = None,
+        embedder: Embedder | None = None,
+        enable_embeddings: bool = True,
     ):
         """Initialize memoria.
 
@@ -42,8 +47,16 @@ class Memoria:
             model_name: Sentence transformer model for embeddings.
             llm_call: Optional callable(prompt: str) -> str for extraction/summarization.
                       If None, uses heuristic extraction (no LLM dependency).
+            scope: ``global`` (legacy default), ``auto``, ``project:/path``, or
+                   a resolved :class:`MemoryScope`.
+            scope_cwd: Working directory used when resolving ``scope="auto"``.
+            embedder: Optional shared embedder for multi-scope callers.
+            enable_embeddings: Disable embedding work on latency-tolerant
+                               ingestion paths such as asynchronous hooks.
         """
-        self.db_path = Path(db_path).expanduser()
+        self.base_db_path = Path(db_path).expanduser()
+        self.scope = resolve_scope(scope, cwd=scope_cwd)
+        self.db_path = scoped_db_path(self.base_db_path, self.scope)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
         self.db = sqlite3.connect(str(self.db_path))
@@ -53,7 +66,7 @@ class Memoria:
 
         self.store = ConversationStore(self.db)
         self.kg = KnowledgeGraph(self.db)
-        self.embedder = Embedder(model_name)
+        self.embedder = (embedder or Embedder(model_name)) if enable_embeddings else None
         self.llm_call = llm_call
         self.retriever = Retriever(self.kg, self.embedder, llm_call)
         self.consolidator = Consolidator(self.kg, self.embedder, llm_call)
@@ -64,13 +77,23 @@ class Memoria:
         role: str = "user",
         session_id: str | None = None,
         metadata: dict | None = None,
+        ensure_retrievable: bool = False,
+        fallback_confidence: float = 0.7,
     ) -> dict:
         """Ingest a conversation turn: store raw, extract knowledge, update graph.
 
         This is the primary write path. Returns extraction stats.
         """
         # L1: Store raw
-        conv_id = self.store.append(text, role=role, session_id=session_id, metadata=metadata)
+        stored_metadata = dict(metadata or {})
+        stored_metadata.setdefault("scope", self.scope.scope_id)
+        stored_metadata.setdefault("scope_label", self.scope.label)
+        conv_id = self.store.append(
+            text,
+            role=role,
+            session_id=session_id,
+            metadata=stored_metadata,
+        )
 
         # Extract entities and relations
         if self.llm_call:
@@ -84,7 +107,28 @@ class Memoria:
             source_ref=conv_id,
             embedder=self.embedder,
         )
+        if ensure_retrievable and stats["triples_added"] == 0:
+            note_embedding = (
+                self.embedder.embed_single(text[:2000]) if self.embedder else None
+            )
+            note_entity = self.kg.add_entity(
+                f"Memory {conv_id[:8]}",
+                entity_type="memory",
+                embedding=note_embedding,
+            )
+            self.kg.add_triple(
+                note_entity,
+                "records",
+                object_value=text[:2000],
+                relation_type="fact",
+                confidence=max(0.0, min(float(fallback_confidence), 1.0)),
+                source_ref=conv_id,
+                replace_existing=False,
+            )
+            stats["triples_added"] = 1
+            stats["fallback_note"] = True
         stats["conversation_id"] = conv_id
+        stats["scope"] = self.scope.scope_id
         return stats
 
     def recall(self, query: str, top_k: int = 20, as_of: float | None = None,
@@ -148,6 +192,8 @@ class Memoria:
         base = self.consolidator.stats()
         base["conversations"] = self.store.count()
         base["db_path"] = str(self.db_path)
+        base["scope"] = self.scope.scope_id
+        base["scope_label"] = self.scope.label
         return base
 
     def entity_context(self, entity_name: str) -> dict:

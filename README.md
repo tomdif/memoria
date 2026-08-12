@@ -119,24 +119,41 @@ pip install memoria-ai
 ### Claude Code
 
 ```bash
-# 1. Add MCP server
+# Install deterministic lifecycle hooks for all local projects
 pip install -e ".[mcp]"
-claude mcp add memoria -- python -m memoria.mcp_server
+memoria install claude
+memoria doctor
 
-# 2. Copy the CLAUDE.md to your project (enables automatic, invisible memory)
-cp /path/to/memoria/CLAUDE.md .claude/projects/CLAUDE.md
-# Or for global (all projects):
-cp /path/to/memoria/CLAUDE.md ~/.claude/projects/-global/CLAUDE.md
+# Optional: expose the manual inspection and cleanup tools too
+claude mcp add memoria -- env MEMORIA_SCOPE=auto python3 -m memoria.mcp_server
 ```
 
-The CLAUDE.md file tells Claude to automatically recall relevant memories at conversation start and store important context as it comes up — completely invisible to the user. Without it, the tools are available but Claude won't use them proactively.
+The installer adds two Claude Code hooks without replacing your existing
+settings:
 
-To verify it's working:
+- `UserPromptSubmit` recalls relevant global and current-project memory and
+  injects it as context before Claude handles the prompt.
+- `Stop` asynchronously stores durable preferences, decisions, and completed
+  work after a turn. Routine tool output, fenced code, and common secret
+  patterns are not stored.
+
+Hooks remove the dependency on Claude deciding to call an MCP tool. A backup of
+an existing settings file is created on first installation. Use
+`memoria install claude --project` for a project-local installation.
+The hooks auto-start a user-local daemon over a permission-restricted Unix
+socket. It keeps the neural models warm between prompts; inspect it with
+`memoria daemon status` and stop it with `memoria daemon stop`.
+
+Memories are isolated structurally. The legacy database is the global scope;
+each Git repository gets a separate SQLite database under
+`~/.memoria/scopes/`. Worktrees from the same repository share a scope. Recall
+searches only the current project plus global user preferences.
+
+To verify manually:
 
 ```bash
-claude
-# Ask: "check memoria stats"
-# You should see entities and triples accumulating over time
+memoria --scope auto stats
+memoria --scope auto recall "what database does this project use" --mode speed
 ```
 
 ### Cursor
@@ -150,20 +167,22 @@ claude
       "command": "python",
       "args": ["-m", "memoria.mcp_server"],
       "env": {
-        "MEMORIA_DB": "~/.memoria/memoria.db"
+        "MEMORIA_DB": "~/.memoria/memoria.db",
+        "MEMORIA_SCOPE": "auto"
       }
     }
   }
 }
 ```
 
-2. Add the rules for automatic memory to your Cursor rules file (`.cursor/rules` or `.cursorrules`):
+2. Add the MCP fallback guidance to your Cursor rules file (`.cursor/rules` or `.cursorrules`):
 
 ```
 Copy the contents of CLAUDE.md from the memoria repo into your rules file.
 ```
 
-Restart Cursor. Memoria will run invisibly in the background.
+Restart Cursor. Because Cursor does not use the Claude lifecycle hooks above,
+recall and saving still depend on the agent following these MCP instructions.
 
 ### Windsurf
 
@@ -176,14 +195,15 @@ Restart Cursor. Memoria will run invisibly in the background.
       "command": "python",
       "args": ["-m", "memoria.mcp_server"],
       "env": {
-        "MEMORIA_DB": "~/.memoria/memoria.db"
+        "MEMORIA_DB": "~/.memoria/memoria.db",
+        "MEMORIA_SCOPE": "auto"
       }
     }
   }
 }
 ```
 
-2. Add the contents of `CLAUDE.md` from the memoria repo to your Windsurf rules for automatic, invisible memory.
+2. Add the contents of `CLAUDE.md` from the Memoria repository as MCP fallback guidance.
 
 ### Cline (VS Code)
 
@@ -195,13 +215,14 @@ Restart Cursor. Memoria will run invisibly in the background.
     "command": "python",
     "args": ["-m", "memoria.mcp_server"],
     "env": {
-      "MEMORIA_DB": "~/.memoria/memoria.db"
+      "MEMORIA_DB": "~/.memoria/memoria.db",
+      "MEMORIA_SCOPE": "auto"
     }
   }
 }
 ```
 
-2. Add the contents of `CLAUDE.md` from the memoria repo to your Cline custom instructions for automatic, invisible memory.
+2. Add the contents of `CLAUDE.md` from the Memoria repository as MCP fallback guidance.
 
 ### Codex CLI / ChatGPT / Custom agents (HTTP API)
 
@@ -277,7 +298,15 @@ memoria cleanup purge-expired  # permanently deletes superseded history
 memoria cleanup delete-entity --name "old entity"
 memoria cleanup delete-triple --id "triple-uuid"
 memoria cleanup merge --name "duplicate" --into "canonical"
+
+# Isolate a command to the current repository
+memoria --scope auto remember "This project uses PostgreSQL"
+memoria --scope auto recall "database"
 ```
+
+CLI, MCP, and HTTP retain the legacy `global` default for backward
+compatibility. Set `MEMORIA_SCOPE=auto` for repository isolation. Claude's
+lifecycle hooks always use the current project plus global user preferences.
 
 ### Environment variables
 
@@ -285,6 +314,9 @@ memoria cleanup merge --name "duplicate" --into "canonical"
 |----------|---------|-------------|
 | `MEMORIA_DB` | `~/.memoria/memoria.db` | Path to SQLite database |
 | `MEMORIA_MODEL` | `all-MiniLM-L6-v2` | Sentence transformer model |
+| `MEMORIA_SCOPE` | interface-dependent | `global`, `auto`, or `project:/path` |
+| `MEMORIA_HOOK_MODE` | `speed` | Retrieval mode used by Claude hooks |
+| `MEMORIA_HOOK_STATE_DIR` | `~/.memoria/hook-state` | Pending-turn state for asynchronous saving |
 | `ANTHROPIC_API_KEY` | (none) | Optional, enables LLM entity extraction |
 
 ## Architecture
@@ -318,7 +350,7 @@ memoria cleanup merge --name "duplicate" --into "canonical"
 
 **Key design choices:**
 - **Local-first**: Everything runs on your machine. No cloud, no API calls for core functionality
-- **Single SQLite file**: The entire memory state is one file (`~/.memoria/memoria.db`). Back it up, move it, share it
+- **Scoped SQLite files**: Global memory stays in `~/.memoria/memoria.db`; project memory uses one isolated database per Git repository under `~/.memoria/scopes/`
 - **Spectral consolidation**: Uses the spectral gap of the knowledge graph to determine search depth and prune low-importance memories
 - **History-safe self-cleansing**: Every `consolidate()` call removes self-referencing triples, deduplicates identical facts, merges exact-name duplicate entities, and removes true orphans. Superseded facts remain available to temporal history until `cleanup purge-expired` is explicitly requested
 - **Embedding cache**: Session embeddings are cached by content hash, so repeated queries over the same corpus hit memory instead of re-encoding

@@ -46,6 +46,11 @@ def main():
         description="Spectral memory architecture with CAG-informed retrieval",
     )
     parser.add_argument("--db", default="~/.memoria/memoria.db", help="Database path")
+    parser.add_argument(
+        "--scope",
+        default="global",
+        help="Memory scope: global, auto, project, or project:/path",
+    )
     parser.add_argument("--no-llm", action="store_true", help="Disable LLM extraction (heuristic only)")
     sub = parser.add_subparsers(dest="command")
 
@@ -89,6 +94,22 @@ def main():
 
     # serve
     sub.add_parser("serve", help="Start MCP server (stdio)")
+
+    # install
+    p_install = sub.add_parser("install", help="Install an agent integration")
+    p_install.add_argument("integration", choices=["claude"])
+    p_install.add_argument("--project", action="store_true", help="Install for the current project only")
+    p_install.add_argument("--settings", default=None, help=argparse.SUPPRESS)
+
+    # doctor
+    p_doctor = sub.add_parser("doctor", help="Check Memoria integration health")
+    p_doctor.add_argument("--project", action="store_true", help="Check project-local Claude settings")
+    p_doctor.add_argument("--settings", default=None, help=argparse.SUPPRESS)
+    p_doctor.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+
+    # daemon
+    p_daemon = sub.add_parser("daemon", help="Manage the local hook daemon")
+    p_daemon.add_argument("action", choices=["start", "status", "stop"])
 
     # export
     p_export = sub.add_parser("export", help="Export memory as portable context for Codex/remote agents")
@@ -136,9 +157,57 @@ def main():
         run_http_server(port=args.port, host=args.host)
         return
 
+    if args.command == "install":
+        from .integrations import install_claude_hooks
+
+        result = install_claude_hooks(
+            settings_path=args.settings,
+            project=args.project,
+        )
+        print(f"Installed Claude Code hooks in {result['settings_path']}")
+        if result["backup_path"]:
+            print(f"Backup: {result['backup_path']}")
+        print("Events: UserPromptSubmit (recall), Stop (async save)")
+        return
+
+    if args.command == "doctor":
+        from .integrations import doctor_report
+
+        result = doctor_report(
+            settings_path=args.settings,
+            project=args.project,
+            db_path=args.db,
+        )
+        if args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            for check in result["checks"]:
+                marker = "ok" if check["ok"] else "FAIL"
+                print(f"[{marker}] {check['name']}: {check['detail']}")
+        if not result["ok"]:
+            raise SystemExit(1)
+        return
+
+    if args.command == "daemon":
+        from .daemon import daemon_status, start_daemon, stop_daemon
+
+        if args.action == "start":
+            ok = start_daemon()
+            print("Memoria daemon running" if ok else "Memoria daemon failed to start")
+        elif args.action == "status":
+            ok = daemon_status()
+            print("Memoria daemon running" if ok else "Memoria daemon stopped")
+        else:
+            was_running = daemon_status()
+            ok = stop_daemon() if was_running else True
+            print("Memoria daemon stopped" if ok else "Memoria daemon failed to stop")
+        if not ok:
+            raise SystemExit(1)
+        return
+
     llm_call = None if args.no_llm else make_llm_call()
 
-    with Memoria(db_path=args.db, llm_call=llm_call) as m:
+    with Memoria(db_path=args.db, llm_call=llm_call, scope=args.scope) as m:
         if args.command == "remember":
             result = m.remember(args.text, role=args.role, session_id=args.session)
             print(json.dumps(result, indent=2, default=str))

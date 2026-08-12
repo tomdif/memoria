@@ -40,7 +40,8 @@ def get_memoria() -> Memoria:
     if _memoria is None:
         db_path = os.environ.get("MEMORIA_DB", "~/.memoria/memoria.db")
         model = os.environ.get("MEMORIA_MODEL", "all-MiniLM-L6-v2")
-        _memoria = Memoria(db_path=db_path, model_name=model)
+        scope = os.environ.get("MEMORIA_SCOPE", "global")
+        _memoria = Memoria(db_path=db_path, model_name=model, scope=scope)
     return _memoria
 
 
