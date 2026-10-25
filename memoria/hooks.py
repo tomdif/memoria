@@ -71,7 +71,7 @@ def _state_dir() -> Path:
     path = Path(
         os.environ.get("MEMORIA_HOOK_STATE_DIR", "~/.memoria/hook-state")
     ).expanduser()
-    path.mkdir(parents=True, exist_ok=True)
+    path.mkdir(parents=True, exist_ok=True, mode=0o700)
     return path
 
 
@@ -123,7 +123,9 @@ def _save_pending_prompt(event: dict[str, Any]) -> None:
     }
     target = _state_dir() / f"{_pending_prefix(session_id)}-{time.time_ns()}.json"
     temporary = target.with_suffix(".tmp")
-    temporary.write_text(json.dumps(payload), encoding="utf-8")
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as stream:
+        stream.write(json.dumps(payload))
     temporary.replace(target)
 
 

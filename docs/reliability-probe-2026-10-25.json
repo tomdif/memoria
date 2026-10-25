@@ -1,0 +1,52 @@
+{
+  "baseline": {
+    "facts": 1000,
+    "runs": 3,
+    "write_seconds_median": 0.336441,
+    "measurements": [
+      {
+        "write_seconds": 0.339812,
+        "write_commits": 2001,
+        "recall_selects": 1002,
+        "results": 10
+      },
+      {
+        "write_seconds": 0.33309,
+        "write_commits": 2001,
+        "recall_selects": 1002,
+        "results": 10
+      },
+      {
+        "write_seconds": 0.336441,
+        "write_commits": 2001,
+        "recall_selects": 1002,
+        "results": 10
+      }
+    ]
+  },
+  "improved": {
+    "facts": 1000,
+    "runs": 3,
+    "write_seconds_median": 0.159151,
+    "measurements": [
+      {
+        "write_seconds": 0.162136,
+        "write_commits": 1,
+        "recall_selects": 3,
+        "results": 10
+      },
+      {
+        "write_seconds": 0.159151,
+        "write_commits": 1,
+        "recall_selects": 3,
+        "results": 10
+      },
+      {
+        "write_seconds": 0.157131,
+        "write_commits": 1,
+        "recall_selects": 3,
+        "results": 10
+      }
+    ]
+  }
+}

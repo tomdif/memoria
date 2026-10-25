@@ -9,6 +9,11 @@ capture deterministic in Claude Code and Codex; MCP, HTTP, and CLI interfaces
 cover other tools. Memoria extracts entities and relationships, stores them in
 a scoped knowledge graph, and retrieves them with a three-stage pipeline.
 
+Version 0.3 adds atomic memory writes, recall without model downloads,
+structured results with provenance, verified database backups, and hardened
+HTTP/MCP interfaces. See the [engineering review](docs/ENGINEERING_REVIEW_2026-10-25.md)
+for findings, measurements, compatibility changes, and remaining limitations.
+
 ## How it works
 
 ```
@@ -74,6 +79,9 @@ as Memoria's own pipeline, so the +3.8 pp gap over the strongest control is
 attributable to Memoria's design rather than commodity reranking. Component
 attribution (the 0.40·CE + 0.60·stage-1 score fusion is the dominant term,
 +3.1 pp) is in the [controls addendum](benchmarks/CONTROLS_ADDENDUM.md).
+
+| Dataset and scope | Retriever | Recall-All@5 | Recall-All@10 | NDCG-Any@10 |
+|---|---:|---:|---:|---:|
 | PerLTQA English v2, strict full scope (8,593) | **Memoria windowed** | **84.4%** | — | — |
 |  | Windowed BM25 | 80.5% | — | — |
 |  | Windowed MiniLM | 71.9% | — | — |
@@ -157,6 +165,29 @@ pip install -e ".[dev]"      # Test suite
 
 Memoria is not currently published on PyPI; source installation is the
 supported path.
+
+### Quick start without model downloads
+
+```bash
+memoria --no-models --no-llm remember "remember to include reproducible evidence"
+memoria --no-models --no-llm recall "reproducible evidence" --json
+```
+
+`--no-models` uses graph and lexical retrieval; omit it for neural retrieval.
+Set `MEMORIA_NO_MODELS=1` for the same behavior in Python, HTTP, MCP, and hooks.
+`--no-llm` or `MEMORIA_NO_LLM=1` disables optional hosted extraction in CLI/MCP.
+Unstructured notes are searchable by default, even when extraction finds no facts.
+
+Python callers can use the same API:
+
+```python
+from memoria import Memoria
+
+with Memoria("./memory.db", enable_embeddings=False) as memory:
+    memory.remember("remember to include reproducible evidence")
+    result = memory.recall_json("reproducible evidence", top_k=5)
+    print(result["results"][0]["provenance"]["content"])
+```
 
 ## Setup by tool
 
@@ -337,8 +368,22 @@ curl http://localhost:7437/health
 ```
 
 Codex CLI users should prefer the deterministic hook integration above.
-The HTTP server has no authentication; keep the default `127.0.0.1` binding
-unless you place it behind an authenticated service boundary.
+The default binding is `127.0.0.1`. Set `MEMORIA_HTTP_TOKEN` to require bearer
+authentication on every data endpoint and health check. Non-loopback bindings
+require a token; use TLS at an authenticated reverse proxy for remote access.
+Send `Authorization: Bearer <token>` on requests when authentication is enabled.
+Browser access is denied unless the exact origin is listed in the comma-separated
+`MEMORIA_ALLOWED_ORIGINS` variable. Wildcard CORS is disabled.
+
+Requests must contain JSON objects, use `Content-Type: application/json`, and
+fit within 1 MiB. Invalid arguments return HTTP 400; oversized bodies return
+413. Maintenance flags such as `apply` accept JSON booleans, not strings.
+The HTTP service processes database requests serially and bounds socket reads.
+
+Add `"format": "json"` to `/recall` to receive ranked facts, IDs, scores,
+temporal validity, and original provenance. The default text response remains
+available. `as_of` accepts a Unix timestamp for historical recall. The MCP
+`memoria_recall` tool accepts the same `format` and `as_of` fields.
 
 ### Any tool (CLI)
 
@@ -348,6 +393,10 @@ memoria remember "The API rate limit is 1000 req/min, we hit it during the load 
 
 # Recall memories
 memoria recall "rate limit" --mode speed
+
+# Machine-readable results and historical recall
+memoria recall "rate limit" --json
+memoria recall "rate limit" --as-of 1700000000 --json
 
 # Get entity details
 memoria entity "API"
@@ -364,6 +413,10 @@ memoria stats
 # Inspect this scope or the total footprint across every scope
 memoria --scope auto storage status
 memoria storage status --all-scopes
+
+# Complete, verified backup of the current scope; refuses existing destinations
+memoria --scope auto storage backup ./memoria-snapshot.db
+memoria --scope auto storage check
 
 # Preview archive-backed raw retention, then explicitly apply it
 memoria --scope auto storage retain --older-than-days 180 --keep-latest 1000
@@ -407,6 +460,9 @@ preferences.
 |----------|---------|-------------|
 | `MEMORIA_DB` | `~/.memoria/memoria.db` | Path to SQLite database |
 | `MEMORIA_MODEL` | `all-MiniLM-L6-v2` | Sentence transformer model |
+| `MEMORIA_NO_MODELS` | (none) | Set to `1`, `true`, or `yes` for graph/lexical retrieval without local neural models |
+| `MEMORIA_HTTP_TOKEN` | (none) | Optional bearer token; required when HTTP binds outside loopback |
+| `MEMORIA_ALLOWED_ORIGINS` | (none) | Exact comma-separated browser origins allowed to access HTTP |
 | `MEMORIA_SCOPE` | interface-dependent | `global`, `auto`, or `project:/path` |
 | `MEMORIA_HOOK_MODE` | `speed` | Retrieval mode used by Claude Code and Codex hooks |
 | `MEMORIA_HOOK_STATE_DIR` | `~/.memoria/hook-state` | Pending-turn state for asynchronous saving |
@@ -418,11 +474,14 @@ preferences.
 | `MEMORIA_NO_LLM` | (none) | Set to `1`, `true`, or `yes` to disable optional MCP LLM extraction |
 | `ANTHROPIC_API_KEY` | (none) | Optional, enables LLM entity extraction |
 
+CLI commands honor `MEMORIA_DB`, `MEMORIA_SCOPE`, and `MEMORIA_MODEL`;
+explicit `--db` and `--scope` flags take precedence, including server commands.
+
 ## Storage, RAM, and retention
 
-The warm hook daemon holds the embedding and reranking models, so RAM is
-mostly fixed rather than proportional to conversation count. A typical local
-process is roughly 100–300 MB, depending on platform and loaded model versions.
+The warm hook daemon holds the embedding and reranking models. Model memory is
+roughly fixed, but retrieval buffers grow with the eligible graph and corpus.
+Actual process memory depends on platform, dependencies, and loaded models.
 The two default model downloads currently require about 215 MB; a complete
 Python environment can be substantially larger. Measure the actual database
 and temporary-state footprint with:
@@ -485,12 +544,13 @@ capacity planning, and safe production procedures.
 - **L3 — Spectral clusters**: Emergent topic clusters from graph Laplacian eigenvectors
 
 **Key design choices:**
+- **Atomic writes**: Raw provenance, entity updates, facts, and supersession commit together; failed writes and failed consolidation roll back
 - **Local-first**: Everything runs on your machine. No cloud, no API calls for core functionality
 - **Scoped SQLite files**: Global memory stays in `~/.memoria/memoria.db`; project memory uses one isolated database per Git repository under `~/.memoria/scopes/`
 - **Bounded-operation controls**: Per-scope soft/hard quotas, all-scope usage reporting, archive-first retention, restore validation, WAL checkpointing, and explicit vacuuming
 - **Spectral consolidation**: Uses the spectral gap of the knowledge graph to determine search depth and prune low-importance memories
 - **History-safe self-cleansing**: Every `consolidate()` call removes self-referencing triples, deduplicates identical facts, merges exact-name duplicate entities, and removes true orphans. Superseded facts remain available to temporal history until `cleanup purge-expired` is explicitly requested
-- **Embedding cache**: Session embeddings are cached by content hash, so repeated queries over the same corpus hit memory instead of re-encoding
+- **Bounded embedding cache**: Session embeddings use a 4,096-entry LRU cache with deduplicated batch encoding; evicted entries can be recomputed
 
 ## MCP Tools
 

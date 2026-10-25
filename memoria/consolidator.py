@@ -20,6 +20,8 @@ import time
 import numpy as np
 
 from .graph import KnowledgeGraph
+from .database import transactional
+from . import validation
 from .spectral import (
     build_adjacency,
     consolidation_operator,
@@ -35,15 +37,19 @@ class Consolidator:
     def __init__(self, kg: KnowledgeGraph, embedder: Embedder | None = None,
                  llm_call=None):
         self.kg = kg
+        self.db = kg.db
         self.embedder = embedder
         self.llm_call = llm_call
 
+    @transactional
     def consolidate(
         self,
         prune_threshold: float = 0.05,
         half_life_days: float = 30.0,
     ) -> dict:
         """Run full consolidation cycle. Returns stats."""
+        validation.number(prune_threshold, "prune_threshold", minimum=0, maximum=1)
+        validation.number(half_life_days, "half_life_days", positive=True)
         stats = {
             "merged": 0,
             "decayed": 0,
@@ -80,10 +86,10 @@ class Consolidator:
             "INSERT INTO consolidation_log (timestamp, action, details) VALUES (?, ?, ?)",
             (time.time(), "full_consolidation", json.dumps(stats)),
         )
-        self.kg.db.commit()
 
         return stats
 
+    @transactional
     def _self_cleanse(self) -> dict:
         """Automatic self-cleansing: fix structural issues in the graph.
 
@@ -124,21 +130,22 @@ class Consolidator:
         # 3. Deduplicate identical active triples. Resolve the survivor with an
         # explicit ORDER BY; GROUP_CONCAT itself provides no ordering guarantee.
         dupes = self.kg.db.execute(
-            """SELECT subject_id, predicate, object_id, object_value
+            """SELECT subject_id, predicate, object_id, object_value, relation_type
                FROM triples
                WHERE valid_until IS NULL
-               GROUP BY subject_id, predicate,
+               GROUP BY subject_id, predicate, relation_type,
                         COALESCE(object_id, ''), COALESCE(object_value, '')
                HAVING COUNT(*) > 1"""
         ).fetchall()
-        for subject_id, predicate, object_id, object_value in dupes:
+        for subject_id, predicate, object_id, object_value, relation_type in dupes:
             rows = self.kg.db.execute(
                 """SELECT id FROM triples
                    WHERE subject_id = ? AND predicate = ?
                      AND object_id IS ? AND object_value IS ?
+                     AND relation_type = ?
                      AND valid_until IS NULL
                    ORDER BY confidence DESC, created_at DESC, id""",
-                (subject_id, predicate, object_id, object_value),
+                (subject_id, predicate, object_id, object_value, relation_type),
             ).fetchall()
             for (dup_id,) in rows[1:]:
                 self.kg.db.execute("DELETE FROM triples WHERE id = ?", (dup_id,))
@@ -150,9 +157,9 @@ class Consolidator:
             self.kg.delete_entity(o["id"])
         result["orphans"] = len(orphans)
 
-        self.kg.db.commit()
         return result
 
+    @transactional
     def _merge_repeated(self) -> int:
         """Promote facts that appear in 3+ sources to high confidence."""
         # Find exact (subject, predicate, object) facts with multiple sources.
@@ -177,9 +184,9 @@ class Consolidator:
                 triple_ids,
             )
             merged += 1
-        self.kg.db.commit()
         return merged
 
+    @transactional
     def _spectral_decay(self, half_life_days: float) -> int:
         """Apply the spectral consolidation operator to update all confidences."""
         triples, entity_index = self.kg.all_triples_for_spectral()
@@ -222,16 +229,16 @@ class Consolidator:
                 )
                 # Also update triples involving this entity
                 self.kg.db.execute(
-                    """UPDATE triples SET confidence = confidence * ?
+                    """UPDATE triples SET confidence = MIN(1.0, MAX(0.0, confidence * ?))
                        WHERE (subject_id = ? OR object_id = ?)
                          AND valid_until IS NULL""",
                     (new / max(old, 0.01), eid, eid),
                 )
                 updated += 1
 
-        self.kg.db.commit()
         return updated
 
+    @transactional
     def _prune(self, threshold: float) -> int:
         """Soft-delete triples below confidence threshold."""
         now = time.time()
@@ -241,12 +248,14 @@ class Consolidator:
                  AND relation_type = 'fact'""",
             (now, threshold),
         )
-        self.kg.db.commit()
         return result.rowcount
 
+    @transactional
     def _recluster(self) -> int:
         """Recompute emergent clusters from graph structure."""
         triples, entity_index = self.kg.all_triples_for_spectral()
+        # A shrunken graph must not retain summaries of deleted entities.
+        self.kg.db.execute("DELETE FROM clusters")
         if len(entity_index) < 3:
             return 0
 
@@ -254,9 +263,6 @@ class Consolidator:
         clusters = find_clusters(A)
 
         index_to_id = {v: k for k, v in entity_index.items()}
-
-        # Clear old clusters
-        self.kg.db.execute("DELETE FROM clusters")
 
         now = time.time()
         for i, cluster_indices in enumerate(clusters):
@@ -289,7 +295,6 @@ class Consolidator:
                 (cluster_id, json.dumps(entity_ids), summary, centroid_bytes, now, now),
             )
 
-        self.kg.db.commit()
         return len(clusters)
 
     def _summarize_cluster(self, entity_ids: list[str]) -> str | None:

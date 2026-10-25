@@ -93,12 +93,9 @@ def spectral_gap(A: sparse.csr_matrix, k: int = 6) -> tuple[float, np.ndarray]:
 def screening_radius(gap: float) -> int:
     """Compute the screening radius from the spectral gap.
 
-    Beyond this distance in the graph, nodes are effectively independent
-    (correlations decay as exp(-γ * d)). This gives the optimal walk depth
-    for retrieval: searching beyond this radius adds noise, not signal.
-
-    From the CAG screening theorem: Θ ~ 1/γ
-    We use ceil(2/γ) to be conservative (capture 2 correlation lengths).
+    Use ceil(2/γ), clamped to a practical search budget. This is a heuristic
+    inspired by mixing behavior, not a completeness guarantee for semantic
+    retrieval over an arbitrary knowledge graph.
     """
     if gap <= 0:
         return 10  # fallback for disconnected graphs
@@ -173,11 +170,16 @@ def find_clusters(A: sparse.csr_matrix, n_clusters: int | None = None) -> list[l
 
     L = graph_laplacian(A)
     # Compute enough eigenvalues to detect cluster count
-    k = min(max(10, n // 5), n - 1) if n_clusters is None else min(n_clusters + 1, n - 1)
+    # Automatic clustering must not request thousands of eigenvectors as the
+    # graph grows. Explicit cluster counts retain the caller's chosen budget.
+    k = min(32, max(10, n // 5), n - 1) if n_clusters is None else min(n_clusters + 1, n - 1)
     k = max(k, 2)
 
     try:
-        eigenvalues, eigenvectors = eigsh(L, k=k, which="SM", tol=1e-6)
+        if k >= n:
+            eigenvalues, eigenvectors = np.linalg.eigh(L.toarray())
+        else:
+            eigenvalues, eigenvectors = eigsh(L, k=k, which="SM", tol=1e-6)
         idx = np.argsort(np.real(eigenvalues))
         eigenvalues = np.real(eigenvalues[idx])
         eigenvectors = np.real(eigenvectors[:, idx])
@@ -216,8 +218,13 @@ def _spectral_kmeans(X: np.ndarray, k: int, max_iter: int = 50) -> list[list[int
     centroids[0] = X[rng.integers(n)]
     for i in range(1, k):
         dists = np.min([np.sum((X - centroids[j]) ** 2, axis=1) for j in range(i)], axis=0)
-        probs = dists / (dists.sum() + 1e-30)
-        centroids[i] = X[rng.choice(n, p=probs)]
+        total = float(dists.sum())
+        if total <= 0:
+            # Fewer distinct points than requested clusters: reusing a point
+            # is valid, while passing an all-zero probability vector is not.
+            centroids[i] = X[rng.integers(n)]
+        else:
+            centroids[i] = X[rng.choice(n, p=dists / total)]
 
     labels = np.zeros(n, dtype=int)
     for _ in range(max_iter):

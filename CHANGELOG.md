@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.3.0 — 2026-10-25
+
+- Made ingestion, consolidation, and multi-step graph cleanup atomic, with
+  nested savepoints and serialized concurrent entity creation.
+- Fixed entity prefix collisions, wildcard lookup, mixed entity/literal
+  contradictions, epoch-zero validity, and malformed extraction handling.
+- Added searchable fallback notes by default, model-free graph/lexical recall,
+  structured provenance, and historical recall across CLI, HTTP, and MCP.
+- Batched embedding and SQL work, bounded the embedding cache, and handled
+  empty lexical corpora and degenerate spectral clustering.
+- Kept daemon health checks responsive during inference and protected startup
+  with an OS lock so competing processes cannot replace a live socket.
+- Hardened HTTP authentication, browser origins, request sizes, input types,
+  error responses, and cleanup. Non-loopback binding now requires a token.
+- Hardened MCP framing, notifications, argument validation, version negotiation,
+  and machine-readable stdout. CLI environment defaults and server flags work
+  consistently and errors return nonzero exit codes.
+- Added complete verified SQLite backups and storage integrity checks; archive
+  format/checksum validation is mandatory. New private data files use `0600`.
+- Added cross-platform CI and regression coverage for failure recovery,
+  concurrency, interface security, backups, and process-level integrations.
+
+See [the engineering review](docs/ENGINEERING_REVIEW_2026-10-25.md) for measured
+database overhead, compatibility details, verification, and remaining limits.
+
 ## 0.2.0 — 2026-08-12
 
 - Added native, deterministic Claude Code and Codex lifecycle hooks with

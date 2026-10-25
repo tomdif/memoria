@@ -11,9 +11,10 @@ import json
 import os
 import sys
 from typing import Any
+from contextlib import redirect_stdout
 
 from .core import Memoria
-from . import __version__
+from . import __version__, validation
 
 
 # Lazy-init the memoria instance
@@ -80,11 +81,13 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
+                "format": {"type": "string", "enum": ["text", "json"], "default": "text"},
+                "as_of": {"type": "number", "description": "Unix timestamp for historical recall"},
                 "query": {"type": "string", "description": "What to search for"},
-                "top_k": {"type": "integer", "default": 10, "description": "Max results"},
+                "top_k": {"type": "integer", "minimum": 0, "maximum": 1000, "default": 10, "description": "Max results"},
                 "mode": {"type": "string", "enum": ["speed", "balanced", "quality"],
                          "default": "balanced",
-                         "description": "Retrieval mode: speed (16q/s), balanced (12q/s), quality (5q/s)"},
+                         "description": "Reranking depth; latency depends on corpus and hardware"},
             },
             "required": ["query"],
         },
@@ -224,8 +227,35 @@ TOOLS = [
 ]
 
 
+def _validate_arguments(name, arguments):
+    schema = next((tool["inputSchema"] for tool in TOOLS if tool["name"] == name), None)
+    if schema is None:
+        raise ValueError(f"Unknown tool: {name}")
+    if not isinstance(arguments, dict):
+        raise ValueError("arguments must be an object")
+    for key in schema.get("required", []):
+        if key not in arguments:
+            raise ValueError(f"Missing required field: {key}")
+    for key, value in arguments.items():
+        rule = schema["properties"].get(key)
+        if rule is None:
+            raise ValueError(f"Unknown argument: {key}")
+        kind = rule["type"]
+        if kind == "string":
+            validation.text(value, key)
+        elif kind == "boolean":
+            validation.boolean(value, key)
+        elif kind == "integer":
+            validation.integer(value, key, minimum=rule.get("minimum", 0), maximum=rule.get("maximum"))
+        elif kind == "number":
+            validation.number(value, key)
+        if "enum" in rule and value not in rule["enum"]:
+            raise ValueError(f"{key} must be one of: {', '.join(rule['enum'])}")
+
+
 def handle_tool(name: str, arguments: dict[str, Any]) -> dict:
     """Execute a tool call and return the result."""
+    _validate_arguments(name, arguments)
     m = get_memoria()
 
     if name == "memoria_remember":
@@ -237,12 +267,15 @@ def handle_tool(name: str, arguments: dict[str, Any]) -> dict:
         return {"status": "ok", **result}
 
     elif name == "memoria_recall":
-        result = m.recall_formatted(
-            query=arguments["query"],
-            top_k=arguments.get("top_k", 10),
-            mode=arguments.get("mode", "balanced"),
-        )
-        return {"status": "ok", "results": result}
+        kwargs = {
+            "query": arguments["query"], "top_k": arguments.get("top_k", 10),
+            "mode": arguments.get("mode", "balanced"),
+        }
+        if "as_of" in arguments:
+            kwargs["as_of"] = arguments["as_of"]
+        if arguments.get("format") == "json":
+            return {"status": "ok", **m.recall_json(**kwargs)}
+        return {"status": "ok", "results": m.recall_formatted(**kwargs)}
 
     elif name == "memoria_entity":
         result = m.entity_context(arguments["name"])
@@ -324,74 +357,94 @@ def handle_tool(name: str, arguments: dict[str, Any]) -> dict:
 
 # --- MCP Protocol (stdio JSON-RPC) ---
 
-def run_mcp_server():
-    """Run as MCP server over stdio (JSON-RPC 2.0)."""
-    for line in sys.stdin:
-        line = line.strip()
-        if not line:
-            continue
+SUPPORTED_PROTOCOL_VERSIONS = ("2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25")
+MAX_REQUEST_CHARS = 1024 * 1024
 
+
+def _rpc_error(req_id, code, message):
+    return {"jsonrpc": "2.0", "id": req_id, "error": {"code": code, "message": message}}
+
+
+def _rpc_response(request):
+    if not isinstance(request, dict) or request.get("jsonrpc") != "2.0" or not isinstance(request.get("method"), str):
+        return _rpc_error(None, -32600, "Invalid Request")
+    req_id = request.get("id")
+    if isinstance(req_id, bool) or (req_id is not None and not isinstance(req_id, (str, int))):
+        return _rpc_error(None, -32600, "Invalid request id")
+    # Notifications never receive responses or invoke mutating tools.
+    if "id" not in request:
+        return None
+    params = request.get("params", {})
+    if not isinstance(params, dict):
+        return _rpc_error(req_id, -32602, "params must be an object")
+    method = request["method"]
+    if method == "initialize":
+        requested = params.get("protocolVersion")
+        version = requested if requested in SUPPORTED_PROTOCOL_VERSIONS else SUPPORTED_PROTOCOL_VERSIONS[-1]
+        result = {
+            "protocolVersion": version, "capabilities": {"tools": {}},
+            "serverInfo": {"name": "memoria", "version": __version__},
+        }
+    elif method == "ping":
+        result = {}
+    elif method == "tools/list":
+        result = {"tools": TOOLS}
+    elif method == "tools/call":
+        name = params.get("name")
+        arguments = params.get("arguments", {})
+        if not isinstance(name, str) or name not in {tool["name"] for tool in TOOLS}:
+            return _rpc_error(req_id, -32602, "Unknown tool")
         try:
-            request = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-
-        method = request.get("method", "")
-        req_id = request.get("id")
-
-        if method == "initialize":
-            response = {
-                "jsonrpc": "2.0",
-                "id": req_id,
-                "result": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {"tools": {}},
-                    "serverInfo": {"name": "memoria", "version": __version__},
-                },
+            _validate_arguments(name, arguments)
+        except ValueError as exc:
+            return _rpc_error(req_id, -32602, str(exc))
+        try:
+            with redirect_stdout(sys.stderr):
+                output = handle_tool(name, arguments)
+            result = {"content": [{"type": "text", "text": json.dumps(output, default=str)}]}
+            if isinstance(output, dict) and "error" in output:
+                result["isError"] = True
+        except Exception as exc:
+            result = {
+                "content": [{"type": "text", "text": json.dumps({"error": str(exc)})}],
+                "isError": True,
             }
+    else:
+        return _rpc_error(req_id, -32601, f"Unknown method: {method}")
+    return {"jsonrpc": "2.0", "id": req_id, "result": result}
 
-        elif method == "notifications/initialized":
-            continue
 
-        elif method == "tools/list":
-            response = {
-                "jsonrpc": "2.0",
-                "id": req_id,
-                "result": {"tools": TOOLS},
-            }
+def _reject_constant(value):
+    raise ValueError(f"Invalid JSON constant: {value}")
 
-        elif method == "tools/call":
-            params = request.get("params", {})
-            tool_name = params.get("name", "")
-            tool_args = params.get("arguments", {})
-            try:
-                result = handle_tool(tool_name, tool_args)
-                response = {
-                    "jsonrpc": "2.0",
-                    "id": req_id,
-                    "result": {
-                        "content": [{"type": "text", "text": json.dumps(result, default=str)}],
-                    },
-                }
-            except Exception as e:
-                response = {
-                    "jsonrpc": "2.0",
-                    "id": req_id,
-                    "result": {
-                        "content": [{"type": "text", "text": json.dumps({"error": str(e)})}],
-                        "isError": True,
-                    },
-                }
 
-        else:
-            response = {
-                "jsonrpc": "2.0",
-                "id": req_id,
-                "error": {"code": -32601, "message": f"Unknown method: {method}"},
-            }
-
-        sys.stdout.write(json.dumps(response) + "\n")
-        sys.stdout.flush()
+def run_mcp_server():
+    """Serve bounded newline-delimited messages, surviving malformed requests."""
+    global _memoria
+    try:
+        while True:
+            line = sys.stdin.readline(MAX_REQUEST_CHARS + 1)
+            if not line:
+                break
+            if len(line) > MAX_REQUEST_CHARS:
+                while line and not line.endswith("\n"):
+                    line = sys.stdin.readline(MAX_REQUEST_CHARS + 1)
+                response = _rpc_error(None, -32600, "Request is too large")
+            elif not line.strip():
+                continue
+            else:
+                try:
+                    request = json.loads(line, parse_constant=_reject_constant)
+                    response = _rpc_response(request)
+                except (ValueError, RecursionError):
+                    response = _rpc_error(None, -32700, "Parse error")
+            if response is not None:
+                sys.stdout.write(json.dumps(response) + "\n")
+                sys.stdout.flush()
+    finally:
+        if _memoria is not None:
+            _memoria.close()
+            _memoria = None
 
 
 if __name__ == "__main__":

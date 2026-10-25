@@ -1,13 +1,43 @@
 # Storage operations
 
-Memoria 0.2 adds observable, bounded storage operations without silently
-deleting durable memory. Limits apply per SQLite scope: the global database and
+Memoria provides bounded storage operations, atomic writes, and verified
+backups. Limits and backups apply per SQLite scope: the global database and
 each Git repository have separate files.
+
+## Complete backups and integrity checks
+
+```bash
+memoria --scope auto storage check
+memoria --scope auto storage backup ./project-memory-snapshot.db
+```
+
+`storage check` checks SQLite pages, foreign keys, and the full-text index;
+it exits nonzero when an inconsistency is found. It does not automatically
+repair or delete memory.
+
+`storage backup` uses SQLite's online backup API, including committed WAL
+contents, to capture raw records, graph facts, embeddings, and schema together.
+It verifies the snapshot, syncs it, and publishes it to a new destination.
+Existing files and symbolic links are never overwritten. A backup covers the
+selected scope only; external JSONL archives and other scopes remain separate.
+
+To inspect a snapshot or recover into a separate database:
+
+```bash
+memoria --db ./project-memory-snapshot.db --scope global storage check
+memoria --db ./project-memory-snapshot.db --scope global --no-models recall "database" --json
+```
+
+Use `--scope global` when opening the backup file directly; `--scope auto`
+would derive a different project database beside it. For replacement of a
+production database, stop all writers and preserve the existing database and
+its WAL/SHM files before switching paths. A copied `.db` file alone may miss
+committed WAL data; use the backup command for live databases.
 
 ## What consumes space
 
-- The warm hook daemon keeps neural models in RAM. Its footprint is mostly
-  fixed and does not grow with conversation count.
+- The warm hook daemon keeps neural models in RAM. Model memory is roughly
+  fixed; retrieval buffers also scale with the eligible graph and corpus.
 - Downloaded embedding and reranking models are cached outside the Memoria
   database. The current defaults occupy about 215 MB, though dependency and
   model releases can change this.
@@ -93,7 +123,9 @@ memoria --scope auto storage restore /path/to/archive.jsonl
 memoria --scope auto storage restore /path/to/archive.jsonl --apply
 ```
 
-Restore rejects symbolic links, malformed records, and checksum mismatches.
+Restore rejects symbolic links, malformed records, missing format/checksum
+fields, and checksum mismatches. Checksums detect accidental changes; they
+do not authenticate an archive supplied by another party.
 Existing conversation IDs are left unchanged and reported as skipped. Restored
 IDs reconnect graph provenance automatically.
 
@@ -135,6 +167,7 @@ preserves superseded temporal history unless it is explicitly purged.
 
 Claude Code and Codex hooks briefly store pending prompts until the matching
 `Stop` event. Abandoned JSON files are removed automatically after seven days.
+New pending-prompt files are created with mode `0600` on POSIX systems.
 Set `MEMORIA_PENDING_TTL_DAYS` to change the lifetime or a negative value to
 disable automatic cleanup.
 
