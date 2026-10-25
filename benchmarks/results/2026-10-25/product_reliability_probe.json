@@ -1,0 +1,25 @@
+{
+  "facts": 1000,
+  "runs": 3,
+  "write_seconds_median": 0.158088,
+  "measurements": [
+    {
+      "write_seconds": 0.163397,
+      "write_commits": 1,
+      "recall_selects": 3,
+      "results": 10
+    },
+    {
+      "write_seconds": 0.157899,
+      "write_commits": 1,
+      "recall_selects": 3,
+      "results": 10
+    },
+    {
+      "write_seconds": 0.158088,
+      "write_commits": 1,
+      "recall_selects": 3,
+      "results": 10
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "characters": 32,
+  "questions": 8593,
+  "valid_gold": 8491,
+  "missing_gold": 102,
+  "by_type": {
+    "profile": {
+      "valid": 357,
+      "missing": 0
+    },
+    "social_relationship": {
+      "valid": 802,
+      "missing": 95
+    },
+    "events": {
+      "valid": 4494,
+      "missing": 7
+    },
+    "dialogues": {
+      "valid": 2838,
+      "missing": 0
+    }
+  },
+  "resolved_character_aliases": 1
+}
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 103/103 [00:00<00:00, 12799.64it/s]
+[1mBertModel LOAD REPORT[0m from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  |
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  |
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+  500/8593 strict-R@5=0.724 (59.7 q/s)
+  1000/8593 strict-R@5=0.706 (81.3 q/s)
+  1500/8593 strict-R@5=0.730 (90.5 q/s)
+  2000/8593 strict-R@5=0.725 (96.1 q/s)
+  2500/8593 strict-R@5=0.740 (98.7 q/s)
+  3000/8593 strict-R@5=0.731 (99.7 q/s)
+  3500/8593 strict-R@5=0.727 (102.7 q/s)
+  4000/8593 strict-R@5=0.718 (104.0 q/s)
+  4500/8593 strict-R@5=0.724 (105.5 q/s)
+  5000/8593 strict-R@5=0.724 (106.3 q/s)
+  5500/8593 strict-R@5=0.730 (108.2 q/s)
+  6000/8593 strict-R@5=0.729 (109.6 q/s)
+  6500/8593 strict-R@5=0.727 (111.3 q/s)
+  7000/8593 strict-R@5=0.728 (112.0 q/s)
+  7500/8593 strict-R@5=0.732 (112.9 q/s)
+  8000/8593 strict-R@5=0.729 (112.9 q/s)
+  8500/8593 strict-R@5=0.721 (114.8 q/s)
+
+PerLTQA English v2 memory retrieval
+Retriever: window-minilm
+Rows: 8593 (102 missing gold IDs)
+R@1: 42.1% strict / 42.6% valid-gold
+R@2: 60.6% strict / 61.3% valid-gold
+R@3: 66.1% strict / 66.9% valid-gold
+R@5: 71.9% strict / 72.7% valid-gold
+Time: 74.7s (115.0 q/s)
+Saved to /Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/perltqa_en_v2_window_minilm.json

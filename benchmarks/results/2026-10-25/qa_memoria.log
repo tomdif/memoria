@@ -1,0 +1,23 @@
+arm=memoria cot=False: 0 already done, 500 to run
+  25 done  acc so far=1.000  cost so far=$0.35
+  50 done  acc so far=1.000  cost so far=$0.73
+  75 done  acc so far=0.960  cost so far=$1.15
+  100 done  acc so far=0.900  cost so far=$1.60
+  125 done  acc so far=0.872  cost so far=$2.05
+  150 done  acc so far=0.853  cost so far=$2.58
+  175 done  acc so far=0.840  cost so far=$3.05
+  200 done  acc so far=0.840  cost so far=$3.46
+  225 done  acc so far=0.827  cost so far=$3.90
+  250 done  acc so far=0.820  cost so far=$4.33
+  275 done  acc so far=0.793  cost so far=$4.77
+  300 done  acc so far=0.783  cost so far=$5.22
+  325 done  acc so far=0.778  cost so far=$5.65
+  350 done  acc so far=0.774  cost so far=$6.07
+  375 done  acc so far=0.784  cost so far=$6.50
+  400 done  acc so far=0.787  cost so far=$6.91
+  425 done  acc so far=0.784  cost so far=$7.34
+  450 done  acc so far=0.784  cost so far=$7.73
+  475 done  acc so far=0.794  cost so far=$8.09
+  500 done  acc so far=0.802  cost so far=$8.43
+arm=memoria: ran 500 rows in 128s, cost this run $8.43
+  tokens: reader 7573890/80825, judge 216195/1998

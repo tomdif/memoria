@@ -1,0 +1,176 @@
+{
+  "created_at": "2026-10-25",
+  "source_commit": "39a6879e0eef74b9ffd06b1b9186d73aa6d9acf7",
+  "python": "3.13.11 (main, Dec  5 2025, 16:06:33) [Clang 17.0.0 (clang-1700.4.4.1)]",
+  "platform": "macOS-26.3-arm64-arm-64bit-Mach-O",
+  "packages": {
+    "numpy": "2.4.4",
+    "scipy": "1.17.1",
+    "rank-bm25": "0.2.2",
+    "sentence-transformers": "5.4.0",
+    "torch": "2.11.0",
+    "transformers": "5.5.3",
+    "anthropic": "0.93.0"
+  },
+  "datasets": {
+    "longmemeval_s_cleaned.json": {
+      "bytes": 277383467,
+      "sha256": "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442"
+    },
+    "locomo10.json": {
+      "bytes": 2805274,
+      "sha256": "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4"
+    },
+    "perltmem_en_v2.json": {
+      "bytes": 12879644,
+      "sha256": "fb3011d78babdc9c5323a8d303ca7d4cdb9e2e08992c9890f9ccb2362ff8be94"
+    },
+    "perltqa_en_v2.json": {
+      "bytes": 6766882,
+      "sha256": "ca9f29cbb23eb8f7dbfb792359d9ff90eec066e6d927c83f6c0b7d0bf7baff23"
+    }
+  },
+  "source_hashes": {
+    "memoria/__init__.py": "eaf5999560362039572b85d8397b3ee08aeaf0a5341c6b31d4facecc14a34795",
+    "memoria/__main__.py": "ac9436e38d100c81f90ac1537ccb79592581bfd2c8a0aa8c5090568e97805e5a",
+    "memoria/cli.py": "e37ce59ceadfdb3002a7a18ff9059f457d6390317b59e71cfbdfb4841613fa1e",
+    "memoria/compressor.py": "561be3294e4142288ae551fb0a061edad561d90a5b496dae21931941b6dd7a9c",
+    "memoria/consolidator.py": "90d54926a4acc22fc5e6ea8cd6c19c2c37282adfab0ba3d97774788543b7c4b8",
+    "memoria/core.py": "c6d631f7e80fc9e735a4e248c2d3d89a84213176ad6a07f233523f42ed276654",
+    "memoria/daemon.py": "0f84aff07c91cc2294a7f5c4b33d76a840901b44879e3d218bc06b68bc6e3ed2",
+    "memoria/database.py": "a00ea64bea2eda18e6111657de6eda8dd1827a05bbd2c49429cb91b4684408a6",
+    "memoria/embeddings.py": "00db0b5e83946d81d74522b2532bf083251061bc615f7f8443644f5204fdc86d",
+    "memoria/extractor.py": "c24e0b36bbdbd367b914e4d5bac3d92bd8e3b0c4a90cc656195c4ec51c5a4d73",
+    "memoria/graph.py": "495ea756f177677f137012487db75d57c7820e8f476e4f83a2557b8fc1d0642b",
+    "memoria/hooks.py": "c7b6cc58eddd5347d61256efb016f174dfd1293db5fc8d1f7529aeefb4a17d5d",
+    "memoria/http_server.py": "34094374f6b8808791b7631f4f0b31f7bacf5aafa8af60afee45bab0b320f219",
+    "memoria/integrations.py": "c9236bededdd016d654d51e995a430a86c4afa41339884892af9f83518e6013b",
+    "memoria/maintenance.py": "9d3cf0271b45f8fdbb3b87e9192f3815b57f2d295261ce4409890f3f2c13da72",
+    "memoria/mcp_server.py": "15bdd10a3715098703557a39464efc9276a28d63c8046a490e12ea006a19744a",
+    "memoria/retriever.py": "29a5d66270dd3ebc52327e5e50b70e5bbd02f3affc1a244931ce7e64b4244482",
+    "memoria/schema.py": "a90cbc6c5ceaa50bf33836210508039b7d54c10b845539a8716c1aae0b3d6ac2",
+    "memoria/scopes.py": "1e06af2879d8a10ad216ed3103cc1493dcc0a131f996b70b9ecb525cd5eb0227",
+    "memoria/spectral.py": "d07cc82e6219845185542669d19ec9bc1f14b8b0286f6f51357f82e3a58833ee",
+    "memoria/storage.py": "81ad0a889c2348c5df942774c139dd4770e47e1811454ce9065f19fb745b865b",
+    "memoria/validation.py": "0f02d48198d74b88fb7354a4aa9c439f0edfbda8286d2fbfd8ca1b936f96374f",
+    "benchmarks/controls_ablation.py": "30ab798e480ea854110bb6deb19e81b8c8a7066f531602bc739a3b91b9622e19",
+    "benchmarks/controls_ce.py": "f9e5ab4d2817d3138a8815670041df67d3816868a73c63ec367ccf9d7d8e7544",
+    "benchmarks/download_data.py": "6732ccac897ed1e872f9e44327c72f13d153ff6670e4c079f1ddbfce8b09bbf2",
+    "benchmarks/download_perltqa.py": "e10579ea4568db7997519592f7ff3faf135c5dcc9af67644fbea1628877e9cfe",
+    "benchmarks/headtohead_bench.py": "ddddfc4ef09ca34d97d6bad78d405ad4324b30661da984b8275850378480f5ef",
+    "benchmarks/locomo_bench.py": "a4fe72bb81b5e5494f39cdc12fb95c5c71189163ffe71dd4e89f17d1ffb0d6d6",
+    "benchmarks/longmemeval_bench.py": "777ecafc43007f8b645182d242935e9e2fa0aa45e5f7d65f587db7ea3d5139fb",
+    "benchmarks/longmemeval_final.py": "7c8a2c1af20b24ee81f7b573f4d75529c498fe1fd39b3e1409798aad51fa0fe4",
+    "benchmarks/longmemeval_optimized.py": "6d5b92b8ee391703b91d80fd44455f4a89f4e9ff3d09e32816dce47aa2534d9a",
+    "benchmarks/longmemeval_qa.py": "8cb4ae0e710738bb48984a1deda9bcf60c3a16deb3bbacaa1f94a9e5080b247e",
+    "benchmarks/perltqa_bench.py": "7028cf87c740dd99706d7b2c0371fdd1f88ed4bf9d622feaee5aad2112c73716",
+    "benchmarks/product_reliability_probe.py": "581e4c03eae44e11bf0bd6456ad733f01bd33a5463a8d293dcef22108c7c0276",
+    "benchmarks/retrieval_metrics.py": "098885a31b21999217072c1694a040512ceaeed6e2c56ae29f77dd14642db2d3",
+    "benchmarks/compare_rerun.py": "cb7b6d9f758806ecf7d553c6b2dd04a35d9dcccccc79146af9960811de8637c9"
+  },
+  "qa": {
+    "reader": "claude-haiku-4-5-20251001",
+    "judge": "claude-sonnet-5",
+    "reader_temperature": 0,
+    "judge_temperature": "provider default",
+    "top_k": 5,
+    "variants": [
+      "plain",
+      "cot"
+    ],
+    "arms": [
+      "memoria",
+      "hybrid-ce-dual"
+    ],
+    "fresh_records": true,
+    "estimated_price_per_million_tokens": {
+      "reader_input": 1.0,
+      "reader_output": 5.0,
+      "judge_input": 2.0,
+      "judge_output": 10.0
+    },
+    "pricing_sources": [
+      "https://platform.claude.com/docs/en/models/haiku-4-5/overview",
+      "https://platform.claude.com/docs/en/models/sonnet-5/overview"
+    ],
+    "usage": {
+      "reader_in": 29686574,
+      "reader_out": 478512,
+      "judge_in": 1074890,
+      "judge_out": 7922
+    },
+    "estimated_cost_usd": 34.308134,
+    "completed_evaluations": 2000,
+    "reader_truncations": 0,
+    "judge_truncations": 1,
+    "cost_note": "Standard usage-based estimate, not an invoice; excludes two tiny model-availability probes."
+  },
+  "models": {
+    "models--sentence-transformers--all-MiniLM-L6-v2": {
+      "cached_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
+    },
+    "models--cross-encoder--ms-marco-MiniLM-L-12-v2": {
+      "cached_revision": "7b0235231ca2674cb8ca8f022859a6eba2b1c968"
+    }
+  },
+  "harness_changes": "Output-directory flags, QA response metadata, and a post-run comparison utility. Retrieval implementation, prompts, and ranking settings are frozen at source_commit.",
+  "timing_caveat": "Retrieval jobs share a machine with lexical baselines and QA API jobs; throughput is observational, not an isolated old-versus-new performance experiment.",
+  "hardware": {
+    "cpu": "Apple M3 Max",
+    "memory_bytes": 38654705664
+  },
+  "model_downloads": "disabled via HF_HUB_OFFLINE=1 and TRANSFORMERS_OFFLINE=1 for local retrieval",
+  "product_tests": {
+    "passed": 194,
+    "command": ".venv/bin/python -m pytest -q"
+  },
+  "complete": true,
+  "completed_at_utc": "2026-10-25T16:52:00.877319+00:00",
+  "execution_directory": "/Users/thomasdifiore/memoria",
+  "command_note": "Job records preserve execution-machine paths. Portable reproduction commands are in BENCHMARK_RERUN_2026-10-25.md.",
+  "artifact_hashes": {
+    "comparison.json": "6b27c6470f115d4ef57adbc6bfb198cdb0dabbcaf633730cbf9efdf1ae85b055",
+    "controls_ablation.json": "907cfe0e687a946eb61aa6f09990c5993b3c1d4e61de517005e9426b12fac3b1",
+    "controls_ablation.log": "d746c51abc54f532330ed1bd0dc2885f52b557ba5b8de74ccb345b1fdacb5ee9",
+    "controls_ce.json": "0b9b191b5a5a0343c48c5a2f394dceb1614bfcfc7e8f38d45c11479efaca0eef",
+    "controls_ce.log": "47e609f1646f155bf5560d3c5d2b01030b8e2656d4542666de2c6b4af7d573e2",
+    "lexical_jobs.json": "c2ffb4cbeb2dce433c9f7aa51cfad0698297845344d59c061befac2e958396ed",
+    "locomo_flat_bm25.json": "7d46ce176982000509594a4f0d93facd46640e07a46978cf46b3138aae10b6c9",
+    "locomo_flat_bm25.log": "70b04b793e64f3f7117c7015caefd9dac9b8dd33f6148934ef3260c928b174bb",
+    "locomo_memoria_legacy.json": "4a0e56493f403b82793b867689abbf7c3c44faf125145e8292d4d5ac70219d7d",
+    "locomo_memoria_legacy.log": "35bf5b35fa5d53a51e7efb5ffc3f0f23352ab0ab8a54298cddda5912392219e8",
+    "locomo_memoria_windowed.json": "14a763e97fd406e617dff0eab3e435203c362e3357eb46db2e8b34bbb5376d04",
+    "locomo_memoria_windowed.log": "88ddde271dd11c2b259cbb03dae6d4fd3324c74937f7cd9e6457f7b5d46f3b71",
+    "locomo_minilm.json": "7615429ef3bc5c8eceee21a6f6e69e4d1cb93d27fbb4537bbcbe797f3926c53d",
+    "locomo_minilm.log": "131cef489627d9d0c87ed0ba8dd3a23861874601fe07d76b08f9dad69a502e1a",
+    "longmemeval_s_balanced.json": "6b42274d55d9945423ffd70e538be5f0cbc6d07651eabbeea1b536152cd3da6f",
+    "longmemeval_s_balanced.log": "671de3511065fe7f7b39f4ccc5ee57cc3fa4240252ac6e7fb6b7c375f2b932f7",
+    "longmemeval_s_flat_bm25.json": "b1374d08b811b6545439ee033dccf087681be4b91a850a5bf003065f47a58516",
+    "longmemeval_s_flat_bm25.log": "0009c265d34ae2de3b835abb4c3f06459cca15b29b087b2da57236611b29bc0d",
+    "longmemeval_s_minilm.json": "61dd2f8dcf6092726412660e2d606950f36dba484dc4536c87b6d45a665eea43",
+    "longmemeval_s_minilm.log": "cc9c0682a2a378e847c9aff5c95164e7e7241cb01e582cc4f4316cf750e8f5c3",
+    "neural_jobs.json": "25590b5d338bf56a4001ee0e72b30055ee8b2c96993347f24cbb0348f9493f0c",
+    "perltqa_en_v2_memoria.json": "dd85202ecd93a53379966d9fc92008949a1a63a46178cc45c50bed01f8756401",
+    "perltqa_en_v2_memoria.log": "78af116455486f6c2039f647d8cbf97583daac9bc74b3f6dbdd66fbef0fcb2e1",
+    "perltqa_en_v2_window_bm25.json": "7a282514517991de5aa32248b81dea51beec8efd74398c8ebdf18b12db3c5d7d",
+    "perltqa_en_v2_window_bm25.log": "63e6c5a400840cae1b3b6ee11b2d41e124591243b7249c86d27142109d64cf46",
+    "perltqa_en_v2_window_minilm.json": "249b874024859b622c39a6cb35073a6a2a361e2b2bea429c6047fe5f6b4b5ddb",
+    "perltqa_en_v2_window_minilm.log": "5d91e78be50da5476af19842a56a0d4371b13ddba37078f59c28f116cccad9f1",
+    "product_reliability_probe.json": "49bba0d21a7d445752f9ec1cc8fe37edc866bb986256062de51ae1be0d39e1c9",
+    "qa_cot_hybrid-ce-dual.log": "6f1b46029ccf393bcb8ba46e1333d426dd3df1ebb21b596f0dc60e59f65d374d",
+    "qa_cot_memoria.log": "f35fcca720fbad1ab2b13af6a2d1acdef9089cf089a5470cbf4318b2d8527346",
+    "qa_hybrid-ce-dual.log": "fb7d82393aa6f3c99e1ce0fae3e31a45bafd4b8fd027172fd2a3ac6516aced8a",
+    "qa_integrity_audit.json": "5c55b217bc720d300269d25fa92b933d16c5f47908587026b5ebfa806dd3f088",
+    "qa_jobs.json": "47048c39c419dc7f548a075eac07bae4abd97519ebf2b8a3e631a8217b22e428",
+    "qa_memoria.log": "3ab72848c6e32c9308914b912990a7cf2ab7ba6e358fb9647ebbfe4565ccc697",
+    "qa_report.txt": "bc5da63413f7e039db34be4d96537f60d1f9d1566cdfba1356af8fff4eff1ee1",
+    "qa_retrieval.log": "bb18a838527041f2bce030ddce38fd86a58eacaa2e728fe6e877eab974fad3a8",
+    "qa_retrieval_hybrid-ce-dual.json": "2960a03f7177a5dfc825db43da184ad6a30d2ae5720152b516e378eba6fb47f7",
+    "qa_retrieval_memoria.json": "ed9683351fb6fbc5d5f9bf079b6ac93a729830efbe59018a6e20e31723bb3de1",
+    "results_qa_cot_hybrid-ce-dual.jsonl": "a59f49132df68f15fcfb6e1faea5416e97b6389a31efaee924e9230af81eda13",
+    "results_qa_cot_memoria.jsonl": "7538ea43d2a7f5dbe576a4e53d7b0e6d83f1ecb863b82898301db1fa208e27b9",
+    "results_qa_hybrid-ce-dual.jsonl": "00271ea47d88020c8ff5ddb0714ccd2babb2e612d39b0d6dc6d8b2fea54b86ee",
+    "results_qa_memoria.jsonl": "176304a3a819bcd1b15b25b94fb4ec6f646ba43f4cb2bdfda7a98a7e9cf484a4"
+  },
+  "log_normalization": "Captured text logs have normalized line endings and no trailing whitespace. JSON/JSONL result contents are unchanged."
+}

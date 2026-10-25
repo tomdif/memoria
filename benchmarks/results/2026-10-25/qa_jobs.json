@@ -1,0 +1,76 @@
+[
+  {
+    "name": "qa_memoria",
+    "command": [
+      "/Users/thomasdifiore/memoria/benchmarks/longmemeval_qa.py",
+      "--stage",
+      "qa",
+      "--arm",
+      "memoria",
+      "--concurrency",
+      "12",
+      "--output-dir",
+      "/Users/thomasdifiore/memoria/benchmarks/results/2026-10-25"
+    ],
+    "status": "complete",
+    "started_at": 1792944859.901212,
+    "exit_code": 0,
+    "elapsed_sec": 130.53168296813965
+  },
+  {
+    "name": "qa_hybrid-ce-dual",
+    "command": [
+      "/Users/thomasdifiore/memoria/benchmarks/longmemeval_qa.py",
+      "--stage",
+      "qa",
+      "--arm",
+      "hybrid-ce-dual",
+      "--concurrency",
+      "12",
+      "--output-dir",
+      "/Users/thomasdifiore/memoria/benchmarks/results/2026-10-25"
+    ],
+    "status": "complete",
+    "started_at": 1792944990.433689,
+    "exit_code": 0,
+    "elapsed_sec": 131.53096771240234
+  },
+  {
+    "name": "qa_cot_memoria",
+    "command": [
+      "/Users/thomasdifiore/memoria/benchmarks/longmemeval_qa.py",
+      "--stage",
+      "qa",
+      "--arm",
+      "memoria",
+      "--concurrency",
+      "12",
+      "--output-dir",
+      "/Users/thomasdifiore/memoria/benchmarks/results/2026-10-25",
+      "--cot"
+    ],
+    "status": "complete",
+    "started_at": 1792945121.965444,
+    "exit_code": 0,
+    "elapsed_sec": 193.84641003608704
+  },
+  {
+    "name": "qa_cot_hybrid-ce-dual",
+    "command": [
+      "/Users/thomasdifiore/memoria/benchmarks/longmemeval_qa.py",
+      "--stage",
+      "qa",
+      "--arm",
+      "hybrid-ce-dual",
+      "--concurrency",
+      "12",
+      "--output-dir",
+      "/Users/thomasdifiore/memoria/benchmarks/results/2026-10-25",
+      "--cot"
+    ],
+    "status": "complete",
+    "started_at": 1792945315.8129861,
+    "exit_code": 0,
+    "elapsed_sec": 194.1315357685089
+  }
+]

@@ -104,7 +104,8 @@ ruff check memoria tests
   raw source when available, but retrieval quality and contradiction semantics
   still need evaluation on real ingestion workloads.
 - The spectral radius is a retrieval heuristic, not a semantic completeness
-  guarantee. The existing LongMemEval/LoCoMo/PerLTQA scores were not rerun or
-  revised as part of this reliability work.
+  guarantee. A [subsequent benchmark rerun](../benchmarks/BENCHMARK_RERUN_2026-10-25.md)
+  evaluates LongMemEval/LoCoMo/PerLTQA and fresh QA using the original settings;
+  those raw-session benchmarks still do not validate graph ingestion.
 - The HTTP service remains serial for SQLite ownership; the hook daemon handles
   management requests concurrently while serializing neural hook operations.

@@ -1,0 +1,146 @@
+[
+  {
+    "name": "qa_retrieval",
+    "command": [
+      "/Users/thomasdifiore/memoria/benchmarks/longmemeval_qa.py",
+      "--stage",
+      "retrieve",
+      "--output-dir",
+      "/Users/thomasdifiore/memoria/benchmarks/results/2026-10-25"
+    ],
+    "status": "complete",
+    "started_at": 1792944616.2452538,
+    "exit_code": 0,
+    "elapsed_sec": 243.94698905944824
+  },
+  {
+    "name": "locomo_memoria_windowed",
+    "command": [
+      "/Users/thomasdifiore/memoria/benchmarks/locomo_bench.py",
+      "--data",
+      "benchmarks/data/locomo10.json",
+      "--profile",
+      "windowed",
+      "--mode",
+      "balanced",
+      "--output",
+      "/Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/locomo_memoria_windowed.json"
+    ],
+    "status": "complete",
+    "started_at": 1792944860.1929028,
+    "exit_code": 0,
+    "elapsed_sec": 358.0127921104431
+  },
+  {
+    "name": "perltqa_en_v2_memoria",
+    "command": [
+      "/Users/thomasdifiore/memoria/benchmarks/perltqa_bench.py",
+      "--memory-data",
+      "benchmarks/data/perltmem_en_v2.json",
+      "--qa-data",
+      "benchmarks/data/perltqa_en_v2.json",
+      "--retriever",
+      "memoria",
+      "--output",
+      "/Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/perltqa_en_v2_memoria.json"
+    ],
+    "status": "complete",
+    "started_at": 1792945218.206623,
+    "exit_code": 0,
+    "elapsed_sec": 1189.1471099853516
+  },
+  {
+    "name": "controls_ce",
+    "command": [
+      "/Users/thomasdifiore/memoria/benchmarks/controls_ce.py",
+      "--output",
+      "/Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/controls_ce.json"
+    ],
+    "status": "complete",
+    "started_at": 1792946407.354971,
+    "exit_code": 0,
+    "elapsed_sec": 218.38840794563293
+  },
+  {
+    "name": "controls_ablation",
+    "command": [
+      "/Users/thomasdifiore/memoria/benchmarks/controls_ablation.py",
+      "--output",
+      "/Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/controls_ablation.json"
+    ],
+    "status": "complete",
+    "started_at": 1792946625.7440069,
+    "exit_code": 0,
+    "elapsed_sec": 160.74676823616028
+  },
+  {
+    "name": "longmemeval_s_minilm",
+    "command": [
+      "/Users/thomasdifiore/memoria/benchmarks/longmemeval_final.py",
+      "--data",
+      "benchmarks/data/longmemeval_s_cleaned.json",
+      "--retriever",
+      "minilm",
+      "--scope",
+      "official",
+      "--output",
+      "/Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/longmemeval_s_minilm.json"
+    ],
+    "status": "complete",
+    "started_at": 1792946786.492055,
+    "exit_code": 0,
+    "elapsed_sec": 76.47976088523865
+  },
+  {
+    "name": "locomo_minilm",
+    "command": [
+      "/Users/thomasdifiore/memoria/benchmarks/locomo_bench.py",
+      "--data",
+      "benchmarks/data/locomo10.json",
+      "--retriever",
+      "minilm",
+      "--output",
+      "/Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/locomo_minilm.json"
+    ],
+    "status": "complete",
+    "started_at": 1792946862.972417,
+    "exit_code": 0,
+    "elapsed_sec": 18.86120080947876
+  },
+  {
+    "name": "perltqa_en_v2_window_minilm",
+    "command": [
+      "/Users/thomasdifiore/memoria/benchmarks/perltqa_bench.py",
+      "--memory-data",
+      "benchmarks/data/perltmem_en_v2.json",
+      "--qa-data",
+      "benchmarks/data/perltqa_en_v2.json",
+      "--retriever",
+      "window-minilm",
+      "--output",
+      "/Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/perltqa_en_v2_window_minilm.json"
+    ],
+    "status": "complete",
+    "started_at": 1792946881.836119,
+    "exit_code": 0,
+    "elapsed_sec": 75.54988288879395
+  },
+  {
+    "name": "locomo_memoria_legacy",
+    "command": [
+      "/Users/thomasdifiore/memoria/benchmarks/locomo_bench.py",
+      "--data",
+      "benchmarks/data/locomo10.json",
+      "--profile",
+      "legacy",
+      "--mode",
+      "balanced",
+      "--output",
+      "/Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/locomo_memoria_legacy.json"
+    ],
+    "status": "complete",
+    "started_at": 1792946957.3868558,
+    "exit_code": 0,
+    "elapsed_sec": 156.49905633926392
+  }
+]

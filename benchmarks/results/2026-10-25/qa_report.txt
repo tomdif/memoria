@@ -1,0 +1,60 @@
+
+=== memoria (n=500) ===
+overall QA accuracy:        80.2%
+non-abstention accuracy:    79.1% (n=470)
+abstention accuracy:        96.7% (n=30)
+by ability (non-abstention):
+  knowledge-update                76.4% (n=72)
+  multi-session                   75.2% (n=121)
+  single-session-assistant        96.4% (n=56)
+  single-session-preference       66.7% (n=30)
+  single-session-user            100.0% (n=64)
+  temporal-reasoning              69.3% (n=127)
+retrieval-hit rows (R-all@5=1): acc 81.3% (n=395)
+retrieval-miss rows:            acc 8.3% (n=24)
+tokens: {'reader_in': 7573890, 'reader_out': 80825, 'judge_in': 216195, 'judge_out': 1998}  cost $8.43
+
+=== hybrid-ce-dual (n=500) ===
+overall QA accuracy:        76.4%
+non-abstention accuracy:    75.5% (n=470)
+abstention accuracy:        90.0% (n=30)
+by ability (non-abstention):
+  knowledge-update                73.6% (n=72)
+  multi-session                   73.6% (n=121)
+  single-session-assistant        98.2% (n=56)
+  single-session-preference       43.3% (n=30)
+  single-session-user             93.8% (n=64)
+  temporal-reasoning              66.9% (n=127)
+retrieval-hit rows (R-all@5=1): acc 78.9% (n=379)
+retrieval-miss rows:            acc 15.0% (n=40)
+tokens: {'reader_in': 7254897, 'reader_out': 81944, 'judge_in': 217753, 'judge_out': 1975}  cost $8.12
+
+=== memoria [CoT] (n=500) ===
+overall QA accuracy:        86.6%
+non-abstention accuracy:    86.4% (n=470)
+abstention accuracy:        90.0% (n=30)
+by ability (non-abstention):
+  knowledge-update                87.5% (n=72)
+  multi-session                   80.2% (n=121)
+  single-session-assistant        96.4% (n=56)
+  single-session-preference       73.3% (n=30)
+  single-session-user            100.0% (n=64)
+  temporal-reasoning              83.5% (n=127)
+retrieval-hit rows (R-all@5=1): acc 89.6% (n=395)
+retrieval-miss rows:            acc 12.5% (n=24)
+tokens: {'reader_in': 7588390, 'reader_out': 158009, 'judge_in': 320695, 'judge_out': 1976}  cost $9.04
+
+=== hybrid-ce-dual [CoT] (n=500) ===
+overall QA accuracy:        83.8%
+non-abstention accuracy:    83.4% (n=470)
+abstention accuracy:        90.0% (n=30)
+by ability (non-abstention):
+  knowledge-update                84.7% (n=72)
+  multi-session                   76.0% (n=121)
+  single-session-assistant        98.2% (n=56)
+  single-session-preference       73.3% (n=30)
+  single-session-user             95.3% (n=64)
+  temporal-reasoning              79.5% (n=127)
+retrieval-hit rows (R-all@5=1): acc 88.7% (n=379)
+retrieval-miss rows:            acc 15.0% (n=40)
+tokens: {'reader_in': 7269397, 'reader_out': 157734, 'judge_in': 320247, 'judge_out': 1973}  cost $8.72

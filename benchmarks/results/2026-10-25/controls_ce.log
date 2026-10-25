@@ -1,0 +1,73 @@
+scored rows: 419 / 500
+
+Loading weights:   0%|          | 0/201 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 201/201 [00:00<00:00, 5999.45it/s]
+[1mBertForSequenceClassification LOAD REPORT[0m from: cross-encoder/ms-marco-MiniLM-L-12-v2
+Key                          | Status     |  |
+-----------------------------+------------+--+-
+bert.embeddings.position_ids | UNEXPECTED |  |
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 103/103 [00:00<00:00, 6669.24it/s]
+[1mBertModel LOAD REPORT[0m from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  |
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  |
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+  50/419 (2.67 q/s)  bm25-ce:R-all@5=0.940  minilm-ce:R-all@5=0.960  hybrid-ce:R-all@5=0.980  hybrid-ce-dual:R-all@5=0.940
+  100/419 (2.24 q/s)  bm25-ce:R-all@5=0.820  minilm-ce:R-all@5=0.940  hybrid-ce:R-all@5=0.960  hybrid-ce-dual:R-all@5=0.940
+  150/419 (2.12 q/s)  bm25-ce:R-all@5=0.780  minilm-ce:R-all@5=0.867  hybrid-ce:R-all@5=0.907  hybrid-ce-dual:R-all@5=0.913
+  200/419 (2.09 q/s)  bm25-ce:R-all@5=0.800  minilm-ce:R-all@5=0.880  hybrid-ce:R-all@5=0.910  hybrid-ce-dual:R-all@5=0.920
+  250/419 (2.05 q/s)  bm25-ce:R-all@5=0.776  minilm-ce:R-all@5=0.860  hybrid-ce:R-all@5=0.888  hybrid-ce-dual:R-all@5=0.896
+  300/419 (2.04 q/s)  bm25-ce:R-all@5=0.783  minilm-ce:R-all@5=0.853  hybrid-ce:R-all@5=0.880  hybrid-ce-dual:R-all@5=0.887
+  350/419 (2.02 q/s)  bm25-ce:R-all@5=0.800  minilm-ce:R-all@5=0.860  hybrid-ce:R-all@5=0.883  hybrid-ce-dual:R-all@5=0.894
+  400/419 (2.01 q/s)  bm25-ce:R-all@5=0.825  minilm-ce:R-all@5=0.873  hybrid-ce:R-all@5=0.892  hybrid-ce-dual:R-all@5=0.902
+
+====================================================================================================
+control           R-any@5  R-all@5   NDCG@5  R-any@10  R-all@10  NDCG@10
+bm25-ce             94.3%    82.6%   0.8639     95.0%     85.4%   0.8692
+minilm-ce           96.4%    87.6%   0.9001     98.8%     95.2%   0.9163
+hybrid-ce           96.7%    89.5%   0.9070     99.0%     97.1%   0.9231
+hybrid-ce-dual      96.9%    90.5%   0.9137     98.6%     95.9%   0.9250
+
+memoria balanced (audited): R-any@5 98.1%  R-all@5 94.3%  NDCG@5 0.9414  R-any@10 99.0%  R-all@10 97.1%  NDCG@10 0.9478
+time: 209s
+
+by type — bm25-ce:
+  knowledge-update               R-all@5=0.958 R-all@10=0.972 NDCG@10=0.960
+  multi-session                  R-all@5=0.719 R-all@10=0.744 NDCG@10=0.846
+  single-session-assistant       R-all@5=1.000 R-all@10=1.000 NDCG@10=1.000
+  single-session-preference      R-all@5=0.767 R-all@10=0.800 NDCG@10=0.719
+  single-session-user            R-all@5=0.953 R-all@10=0.969 NDCG@10=0.945
+  temporal-reasoning             R-all@5=0.795 R-all@10=0.843 NDCG@10=0.832
+
+by type — minilm-ce:
+  knowledge-update               R-all@5=0.944 R-all@10=1.000 NDCG@10=0.967
+  multi-session                  R-all@5=0.851 R-all@10=0.909 NDCG@10=0.929
+  single-session-assistant       R-all@5=1.000 R-all@10=1.000 NDCG@10=0.900
+  single-session-preference      R-all@5=0.833 R-all@10=0.967 NDCG@10=0.820
+  single-session-user            R-all@5=0.969 R-all@10=1.000 NDCG@10=0.971
+  temporal-reasoning             R-all@5=0.819 R-all@10=0.937 NDCG@10=0.871
+
+by type — hybrid-ce:
+  knowledge-update               R-all@5=0.944 R-all@10=1.000 NDCG@10=0.967
+  multi-session                  R-all@5=0.893 R-all@10=0.950 NDCG@10=0.939
+  single-session-assistant       R-all@5=1.000 R-all@10=1.000 NDCG@10=0.926
+  single-session-preference      R-all@5=0.833 R-all@10=0.967 NDCG@10=0.820
+  single-session-user            R-all@5=0.984 R-all@10=1.000 NDCG@10=0.972
+  temporal-reasoning             R-all@5=0.835 R-all@10=0.961 NDCG@10=0.883
+
+by type — hybrid-ce-dual:
+  knowledge-update               R-all@5=0.958 R-all@10=1.000 NDCG@10=0.968
+  multi-session                  R-all@5=0.901 R-all@10=0.926 NDCG@10=0.935
+  single-session-assistant       R-all@5=1.000 R-all@10=1.000 NDCG@10=1.000
+  single-session-preference      R-all@5=0.933 R-all@10=0.967 NDCG@10=0.862
+  single-session-user            R-all@5=0.953 R-all@10=1.000 NDCG@10=0.970
+  temporal-reasoning             R-all@5=0.843 R-all@10=0.945 NDCG@10=0.880
+
+saved /Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/controls_ce.json

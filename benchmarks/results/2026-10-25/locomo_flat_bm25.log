@@ -1,0 +1,29 @@
+Loaded 10 conversations, 1986 QA pairs
+  250 scored R-all@5=0.704
+  500 scored R-all@5=0.684
+  750 scored R-all@5=0.673
+  1000 scored R-all@5=0.679
+  1250 scored R-all@5=0.666
+  1500 scored R-all@5=0.681
+  1750 scored R-all@5=0.670
+
+======================================================================
+LoCoMo retrieval diagnostic — flat-bm25
+======================================================================
+Core rows:       1536 (categories 1-4)
+All scored rows: 1982 (4 without evidence skipped)
+Core Recall-All@5:  62.2%
+Core Recall-All@10: 73.3%
+Core NDCG-Any@10:   0.6610
+All Recall-All@5:   66.8%
+All Recall-All@10:  77.2%
+Time:   6.0s (333.1 q/s)
+
+By category:
+  single-hop                 R-all@5=0.156  R-all@10=0.312  NDCG@10=0.428  (n=282)
+  temporal                   R-all@5=0.604  R-all@10=0.726  NDCG@10=0.603  (n=321)
+  multi-hop                  R-all@5=0.348  R-all@10=0.489  NDCG@10=0.428  (n=92)
+  open-domain                R-all@5=0.816  R-all@10=0.904  NDCG@10=0.787  (n=841)
+  adversarial                R-all@5=0.825  R-all@10=0.906  NDCG@10=0.799  (n=446)
+
+Saved to /Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/locomo_flat_bm25.json

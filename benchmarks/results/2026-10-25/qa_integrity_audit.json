@@ -1,0 +1,65 @@
+{
+  "results_qa_memoria.jsonl": {
+    "rows": 500,
+    "matches_dataset_question_ids": true,
+    "matches_retrieval_map": true,
+    "matches_official_label_parser": true,
+    "all_expected_models": true,
+    "reader_stop_reasons": {
+      "end_turn": 500
+    },
+    "judge_stop_reasons": {
+      "end_turn": 500
+    },
+    "nonempty_answers_and_judgments": true,
+    "noncanonical_judge_response_ids": []
+  },
+  "results_qa_cot_memoria.jsonl": {
+    "rows": 500,
+    "matches_dataset_question_ids": true,
+    "matches_retrieval_map": true,
+    "matches_official_label_parser": true,
+    "all_expected_models": true,
+    "reader_stop_reasons": {
+      "end_turn": 500
+    },
+    "judge_stop_reasons": {
+      "end_turn": 500
+    },
+    "nonempty_answers_and_judgments": true,
+    "noncanonical_judge_response_ids": []
+  },
+  "results_qa_hybrid-ce-dual.jsonl": {
+    "rows": 500,
+    "matches_dataset_question_ids": true,
+    "matches_retrieval_map": true,
+    "matches_official_label_parser": true,
+    "all_expected_models": true,
+    "reader_stop_reasons": {
+      "end_turn": 500
+    },
+    "judge_stop_reasons": {
+      "end_turn": 500
+    },
+    "nonempty_answers_and_judgments": true,
+    "noncanonical_judge_response_ids": []
+  },
+  "results_qa_cot_hybrid-ce-dual.jsonl": {
+    "rows": 500,
+    "matches_dataset_question_ids": true,
+    "matches_retrieval_map": true,
+    "matches_official_label_parser": true,
+    "all_expected_models": true,
+    "reader_stop_reasons": {
+      "end_turn": 500
+    },
+    "judge_stop_reasons": {
+      "end_turn": 499,
+      "max_tokens": 1
+    },
+    "nonempty_answers_and_judgments": true,
+    "noncanonical_judge_response_ids": [
+      "6456829e"
+    ]
+  }
+}

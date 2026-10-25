@@ -37,32 +37,42 @@ parent-level coverage checks and tie-aware reciprocal-rank fusion.
 
 ## Benchmarks
 
-The latest audited run is documented in
-[the August 2026 benchmark report](benchmarks/BENCHMARK_REPORT_2026-08-11.md),
-with two addenda: [matched cross-encoder controls with component
-attribution](benchmarks/CONTROLS_ADDENDUM.md) and an [end-to-end QA
-evaluation](benchmarks/QA_ADDENDUM.md). All runs use the official LongMemEval
-metric implementations and apples-to-apples local controls.
+The [October 25 rerun](benchmarks/BENCHMARK_RERUN_2026-10-25.md) evaluates the
+reliability changes with the original datasets, models, and retrieval settings.
+The original protocol is documented in the
+[August benchmark report](benchmarks/BENCHMARK_REPORT_2026-08-11.md),
+[matched controls and component attribution](benchmarks/CONTROLS_ADDENDUM.md),
+and [QA addendum](benchmarks/QA_ADDENDUM.md). LongMemEval scores use its official
+metric implementations.
 
 ### End-to-end QA accuracy (LongMemEval-S, all 500 questions)
 
 Official LongMemEval judge protocol; identical reader
-(`claude-haiku-4-5`), judge (`claude-sonnet-5`), and official prompts in both
-arms, so the delta isolates the retrieval design:
+(`claude-haiku-4-5-20251001`), judge (`claude-sonnet-5`), and official prompts
+in both arms. Each run evaluates 500 fresh answers per arm and prompt variant:
 
-| Arm | Plain reader | CoT reader |
-|---|---:|---:|
-| **Memoria balanced → reader** | **80.8%** | **86.0%** |
-| Strongest commodity control (hybrid → dual-pass cross-encoder) → reader | 75.6% | 82.8% |
+| Arm | August plain | October plain | August CoT | October CoT |
+|---|---:|---:|---:|---:|
+| **Memoria balanced → reader** | 80.8% | **80.2%** | 86.0% | **86.6%** |
+| Matched control (hybrid → dual-pass cross-encoder) → reader | 75.6% | 76.4% | 82.8% | 83.8% |
+
+Both systems returned exactly the same ordered top-five evidence lists as in
+August. QA differences between runs therefore arise after retrieval; they do
+not establish an accuracy gain from the reliability changes. The October
+within-run gaps are +3.8 percentage points with the plain reader and +2.8 with
+CoT. These are single-run observations, not significance estimates.
+One CoT control judgment hit the original token limit and was scored incorrect;
+its maximum effect is 0.2 percentage points.
 
 Published LongMemEval-S numbers for context (different readers and judges, so
 context rather than a leaderboard: Mem0 66.9%, Zep + gpt-4o 71.2%, LiCoMemory
-73.8%, TiMem 76.9%). The controlled claim is the within-run delta from
-Memoria's retrieval design — +5.2 pp with the plain reader, +3.2 pp with the
-CoT reader; see the [QA addendum](benchmarks/QA_ADDENDUM.md) for protocol,
-per-ability breakdowns, abstention accuracy, and limitations.
+73.8%, TiMem 76.9%). See the [rerun report](benchmarks/BENCHMARK_RERUN_2026-10-25.md)
+for per-ability scores, abstention accuracy, paired answer changes, and limits.
 
 ### Retrieval
+
+Every retrieval row below reproduces exactly in the October rerun, including
+the full metric and subgroup breakdowns in the raw artifacts.
 
 | Dataset and scope | Retriever | Recall-All@5 | Recall-All@10 | NDCG-Any@10 |
 |---|---:|---:|---:|---:|
@@ -95,7 +105,7 @@ the QA table, official-protocol answer generation. They do not exercise
 Memoria's conversation ingestion, entity extraction, knowledge-graph
 construction, or consolidation. Retrieval results must not be presented as QA
 accuracy — the QA table above is the only generated-answer metric. The LoCoMo
-windowed LoCoMo profile was developed after inspecting the public benchmark's
+windowed profile was developed after inspecting the public benchmark's
 legacy failures, so it is a post-hoc engineering result rather than an unbiased
 held-out estimate. PerLTQA English v2 was evaluated afterward as an untouched
 external holdout with the retriever frozen; its adapter and data-quality limits
@@ -107,7 +117,7 @@ are documented in the report.
 cd benchmarks
 
 # Install benchmark-only comparison dependencies first
-pip install -e "..[bench]"
+pip install -e "..[bench,llm]"
 
 # LongMemEval-S (419 rows in the official retrieval scope)
 python download_data.py
@@ -119,11 +129,14 @@ python longmemeval_final.py --scope official --retriever minilm
 python controls_ce.py
 python controls_ablation.py
 
-# End-to-end QA (both arms; needs ANTHROPIC_API_KEY, ~$17 total)
-python longmemeval_qa.py --stage retrieve
-python longmemeval_qa.py --stage qa --arm memoria
-python longmemeval_qa.py --stage qa --arm hybrid-ce-dual
-python longmemeval_qa.py --stage report
+# Fresh end-to-end QA (needs ANTHROPIC_API_KEY; ~$17 plain, ~$34 all four arms)
+# Choose a new directory; existing output resumes completed questions.
+python longmemeval_qa.py --stage retrieve --output-dir results/new-run
+python longmemeval_qa.py --stage qa --arm memoria --output-dir results/new-run
+python longmemeval_qa.py --stage qa --arm hybrid-ce-dual --output-dir results/new-run
+python longmemeval_qa.py --stage qa --arm memoria --cot --output-dir results/new-run
+python longmemeval_qa.py --stage qa --arm hybrid-ce-dual --cot --output-dir results/new-run
+python longmemeval_qa.py --stage report --output-dir results/new-run
 
 # LoCoMo session-evidence diagnostic
 python locomo_bench.py --mode balanced --profile windowed
