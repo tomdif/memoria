@@ -13,6 +13,7 @@ import logging
 import os
 import socket
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import TCPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
 from .core import Memoria
@@ -53,6 +54,18 @@ class HTTPError(ValueError):
     def __init__(self, message: str, status: int = 400):
         super().__init__(message)
         self.status = status
+
+
+class MemoriaHTTPServer(HTTPServer):
+    """Bind locally without HTTPServer's blocking reverse-DNS lookup.
+
+    The API does not use a canonical DNS server name. Resolving one can stall
+    startup on offline machines or hosts with slow/misconfigured DNS.
+    """
+
+    def server_bind(self):
+        TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 
 
 def _invalid_constant(value):
@@ -239,7 +252,7 @@ def run_http_server(port: int = 7437, host: str = "127.0.0.1"):
     global _memoria
     if not _loopback(host) and not os.environ.get("MEMORIA_HTTP_TOKEN"):
         raise ValueError("Set MEMORIA_HTTP_TOKEN before binding to a non-loopback address")
-    server = HTTPServer((host, port), MemoriaHandler)
+    server = MemoriaHTTPServer((host, port), MemoriaHandler)
     print(f"Memoria HTTP API running on http://{host}:{server.server_port}", flush=True)
     try:
         server.serve_forever()

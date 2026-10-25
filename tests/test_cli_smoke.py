@@ -85,6 +85,7 @@ def test_http_subprocess_honors_cli_database_and_returns_provenance(cli_env, tmp
          'serve-http', '--port', '0'], env=cli_env,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
     )
+    started = False
     try:
         with selectors.DefaultSelector() as ready:
             ready.register(process.stdout, selectors.EVENT_READ)
@@ -92,6 +93,7 @@ def test_http_subprocess_honors_cli_database_and_returns_provenance(cli_env, tmp
         line = process.stdout.readline()
         assert 'http://127.0.0.1:' in line, line
         port = int(line.strip().rsplit(':', 1)[1])
+        started = True
 
         def post(path, payload):
             connection = HTTPConnection('127.0.0.1', port, timeout=5)
@@ -109,7 +111,12 @@ def test_http_subprocess_honors_cli_database_and_returns_provenance(cli_env, tmp
         assert target.exists()
         assert not os.path.exists(cli_env['MEMORIA_DB'])
     finally:
-        process.send_signal(signal.SIGINT)
+        if started:
+            process.send_signal(signal.SIGINT)
+        else:
+            # Preserve a readiness assertion instead of masking it with a
+            # second timeout while interrupting a process that never started.
+            process.kill()
         try:
             _, stderr = process.communicate(timeout=5)
         except subprocess.TimeoutExpired:

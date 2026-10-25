@@ -1,7 +1,6 @@
 """Exercise HTTP request parsing, authentication, and dispatch over real sockets."""
 
 from http.client import HTTPConnection
-from http.server import HTTPServer
 import json
 import threading
 
@@ -17,7 +16,7 @@ def api(monkeypatch):
     monkeypatch.setattr(http, '_memoria', fake)
     monkeypatch.delenv('MEMORIA_HTTP_TOKEN', raising=False)
     monkeypatch.delenv('MEMORIA_ALLOWED_ORIGINS', raising=False)
-    server = HTTPServer(('127.0.0.1', 0), http.MemoriaHandler)
+    server = http.MemoriaHTTPServer(('127.0.0.1', 0), http.MemoriaHandler)
     thread = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': 0.01})
     thread.start()
 
@@ -122,6 +121,15 @@ def test_non_loopback_binding_requires_authentication(monkeypatch):
     monkeypatch.delenv('MEMORIA_HTTP_TOKEN', raising=False)
     with pytest.raises(ValueError, match='MEMORIA_HTTP_TOKEN'):
         http.run_http_server(host='0.0.0.0', port=0)
+
+
+def test_local_server_binding_never_performs_reverse_dns(monkeypatch):
+    def forbidden(*args):
+        raise AssertionError('server attempted reverse DNS')
+    monkeypatch.setattr(http.socket, 'getfqdn', forbidden)
+    with http.MemoriaHTTPServer(('127.0.0.1', 0), http.MemoriaHandler) as server:
+        assert server.server_name == '127.0.0.1'
+        assert server.server_port > 0
 
 
 def test_internal_errors_do_not_expose_server_paths(api, monkeypatch):

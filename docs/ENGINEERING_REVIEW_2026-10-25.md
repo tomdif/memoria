@@ -55,7 +55,7 @@ python benchmarks/product_reliability_probe.py --source-tree .
 
 ## Verification
 
-- All 193 tests pass on Python 3.10 and Python 3.13, up from 84 baseline tests.
+- The suite contains 194 tests, up from 84 baseline tests.
 - Failure injection checks that raw rows, FTS entries, graph facts, and
   supersession roll back together and that the connection remains usable.
 - Concurrent independent SQLite writers create one shared entity and preserve
