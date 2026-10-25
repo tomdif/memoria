@@ -15,6 +15,8 @@ no retrieval parameters were tuned against the results.
 | PerLTQA English v2, Memoria (strict) | 8,593 | 84.4% | 84.4% | — |
 
 10 of 10 retrieval configurations reproduce every reported metric and subgroup score exactly.
+Together with the seven control/ablation arms, the audit compares 747 metric
+and scoring-count fields with no differences.
 LongMemEval and LoCoMo use strict Recall-All@K; PerLTQA has one reference
 memory per question and uses Recall@K. LoCoMo includes all 1,982 evidence-labeled
 questions in the artifact, with 1,536 non-adversarial questions in the headline
@@ -123,24 +125,19 @@ probes are excluded. Rates were verified against the official
 - [QA command log](results/2026-10-25/qa_jobs.json)
 - [Synthetic product probe](results/2026-10-25/product_reliability_probe.json)
 
+The [benchmark guide](README.md) provides the complete portable command
+sequence: dataset downloads and checksum verification, all 17 retrieval/control
+configurations, all four QA arms, and the comparison. It creates a new output
+directory so historical results remain intact. QA resumes existing question
+records; a new directory is required for an independent evaluation.
+
+To inspect the committed comparison without rerunning models or calling APIs:
+
 ```bash
-# Use a new directory to avoid resuming a prior QA run.
-mkdir -p benchmarks/results/new-run
-python benchmarks/longmemeval_final.py --scope official --mode balanced \
-  --output benchmarks/results/new-run/longmemeval_s_balanced.json
-python benchmarks/locomo_bench.py --profile windowed --mode balanced \
-  --output "$PWD/benchmarks/results/new-run/locomo_memoria_windowed.json"
-python benchmarks/perltqa_bench.py --retriever memoria \
-  --output benchmarks/results/new-run/perltqa_en_v2_memoria.json
-python benchmarks/controls_ce.py --output benchmarks/results/new-run/controls_ce.json
-python benchmarks/controls_ablation.py --output benchmarks/results/new-run/controls_ablation.json
-python benchmarks/longmemeval_qa.py --stage retrieve --output-dir benchmarks/results/new-run
-python benchmarks/longmemeval_qa.py --stage qa --arm memoria --output-dir benchmarks/results/new-run
-# Repeat QA for hybrid-ce-dual, then repeat both arms with --cot.
-python benchmarks/longmemeval_qa.py --stage report --output-dir benchmarks/results/new-run
-python benchmarks/compare_rerun.py benchmarks/results/new-run
+python benchmarks/compare_rerun.py benchmarks/results/2026-10-25
 ```
 
-Queue commands, including lexical/dense and legacy controls, are captured
-in the job artifacts with execution-machine paths. The examples above use
-portable paths. The original August artifacts remain unchanged.
+Queue commands, including lexical/dense and legacy controls, are captured in
+the job artifacts with execution-machine paths. The original August result
+artifacts remain unchanged. Product tests and package checks passed in the
+[CI run for the benchmark commit](https://github.com/tomdif/memoria/actions/runs/40213835893).

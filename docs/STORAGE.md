@@ -4,12 +4,20 @@ Memoria provides bounded storage operations, atomic writes, and verified
 backups. Limits and backups apply per SQLite scope: the global database and
 each Git repository have separate files.
 
+This guide describes version 0.3. See [upgrading](UPGRADING.md) before updating
+an older installation and [the API reference](API.md) for interface details.
+
 ## Complete backups and integrity checks
 
 ```bash
 memoria --scope auto storage check
 memoria --scope auto storage backup ./project-memory-snapshot.db
 ```
+
+Add `--json` to either command for machine-readable output. Python callers use
+`memory.check_storage()` and `memory.backup(destination)`. These operations are
+available through CLI/Python; the HTTP and MCP storage surfaces expose status,
+retention, archive restore, and compaction, not complete backups or checks.
 
 `storage check` checks SQLite pages, foreign keys, and the full-text index;
 it exits nonzero when an inconsistency is found. It does not automatically
@@ -113,6 +121,8 @@ Applied retention completes the archive write and filesystem sync before the
 database transaction deletes rows. Full-text deletion triggers keep search in
 sync. Graph triples keep their source IDs and remain retrievable even while the
 raw record is offline.
+Structured recall reports `provenance: null` for an archived raw record;
+restoring the record reconnects provenance without recreating graph facts.
 
 ## Restore
 
@@ -156,12 +166,14 @@ growth:
 memoria --scope auto consolidate
 memoria --scope auto cleanup find-duplicates
 memoria --scope auto cleanup find-orphans
-memoria --scope auto cleanup purge-expired
 ```
 
-`purge-expired`, entity deletion, and triple deletion permanently change graph
-history. Review their output and backups before applying them. Consolidation
-preserves superseded temporal history unless it is explicitly purged.
+`consolidate` applies its changes immediately. The two `find-*` commands above
+only inspect the graph. Explicit deletion, merging, and purge commands also
+apply immediately; they do not have retention's `--apply` preview convention.
+For example, `memoria --scope auto cleanup purge-expired` permanently deletes
+superseded facts. Consolidation preserves that history unless it is explicitly
+purged. Keep a complete backup before deleting history that you may need later.
 
 ## Temporary hook state
 

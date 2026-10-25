@@ -1,5 +1,12 @@
 # Addendum — end-to-end LongMemEval-S QA evaluation (2026-08-12)
 
+This is the historical August QA report; its scores and costs describe that
+run. The [October 25 rerun](BENCHMARK_RERUN_2026-10-25.md) contains 2,000 fresh
+evaluations: Memoria 80.2% plain / 86.6% CoT and control 76.4% / 83.8%.
+Retrieval lists are identical between runs, so the QA differences arise after
+evidence selection. Use the [benchmark guide](README.md) for fresh-run commands;
+the single-run deltas below are not significance or provider-stability estimates.
+
 The main report and the controls addendum evaluate retrieval only. This
 addendum adds the number the field actually compares on: **end-to-end QA
 accuracy** on all 500 LongMemEval-S questions (abstention included), using the
@@ -27,7 +34,8 @@ official LongMemEval model-judge protocol.
   omitted. Both arms use the identical reader, judge, and prompts.
 - **Runner:** `benchmarks/longmemeval_qa.py`. Raw per-question records
   (hypothesis, judge response, label, retrieved IDs, token usage):
-  `benchmarks/results_qa_memoria.json`, `benchmarks/results_qa_hybrid-ce-dual.json`.
+  [`results_qa_memoria.jsonl`](results_qa_memoria.jsonl) and
+  [`results_qa_hybrid-ce-dual.jsonl`](results_qa_hybrid-ce-dual.jsonl).
 - **Cost:** $16.54 total (reader ~14.8M input / 161K output tokens on Haiku
   4.5; judge ~431K input tokens on Sonnet 5 intro pricing).
 

@@ -45,6 +45,10 @@ reranker. Three runs per revision used the same local Python 3.13 environment.
 [Raw measurements](reliability-probe-2026-10-25.json) accompany the probe.
 This is a database-overhead measurement, not an inference benchmark or a claim
 of improved retrieval accuracy. Timing depends on filesystem and hardware.
+The [later probe rerun](../benchmarks/results/2026-10-25/product_reliability_probe.json)
+again recorded one commit and three SELECTs, with median ingestion time
+158.088 ms. The separate benchmark queue shared the machine, so that timing
+is an observation rather than a new controlled speed comparison.
 
 Reproduce against two local source trees:
 
@@ -71,6 +75,11 @@ python benchmarks/product_reliability_probe.py --source-tree .
   were both checked. A separate smoke test loaded the cached MiniLM embedder and
   cross-encoder, correctly retrieving a database fact and an unstructured note.
 - Source and wheel distributions build successfully; Python error lint passes.
+- The [full benchmark rerun](../benchmarks/BENCHMARK_RERUN_2026-10-25.md)
+  reproduces 747 retrieval metric/count fields across 10 configurations and
+  seven controls/ablations. All 2,000 QA evaluations are fresh; the report
+  distinguishes generation/judging variation from retrieval behavior and
+  records one truncated control judgment.
 
 Run verification with:
 
@@ -79,6 +88,9 @@ pip install -e '.[dev]'
 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 python -m pytest -q
 ruff check memoria tests
 ```
+
+See [the API reference](API.md), [upgrade guide](UPGRADING.md), and
+[benchmark reproduction guide](../benchmarks/README.md) for operational commands.
 
 ## Compatibility and remaining limits
 

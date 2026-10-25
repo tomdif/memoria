@@ -21,9 +21,22 @@
   format/checksum validation is mandatory. New private data files use `0600`.
 - Added cross-platform CI and regression coverage for failure recovery,
   concurrency, interface security, backups, and process-level integrations.
+- Reran all 10 published retrieval configurations and seven matched-control/
+  ablation arms: every score, subgroup metric, and scoring count reproduces.
+- Ran 2,000 fresh LongMemEval-S QA evaluations. Memoria scores 80.2% with the
+  plain reader and 86.6% with CoT; the control scores 76.4% and 83.8%.
+  Retrieved evidence is unchanged from August, so these QA differences are not
+  evidence of gains from the reliability changes. One control judgment reached
+  its token limit, with at most a 0.2-point effect.
+- Added independent benchmark output paths, QA model/stop-reason metadata,
+  a comparison utility, and checksummed rerun artifacts.
+- Refreshed setup instructions, API and upgrade guides, and reproducible
+  benchmark commands. The suite passes all 194 tests on Linux and macOS CI.
 
 See [the engineering review](docs/ENGINEERING_REVIEW_2026-10-25.md) for measured
 database overhead, compatibility details, verification, and remaining limits.
+See the [benchmark rerun](benchmarks/BENCHMARK_RERUN_2026-10-25.md) for full
+results and [upgrade guide](docs/UPGRADING.md) for existing installations.
 
 ## 0.2.0 — 2026-08-12
 

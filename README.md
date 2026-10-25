@@ -14,6 +14,10 @@ structured results with provenance, verified database backups, and hardened
 HTTP/MCP interfaces. See the [engineering review](docs/ENGINEERING_REVIEW_2026-10-25.md)
 for findings, measurements, compatibility changes, and remaining limitations.
 
+Documentation: [API reference](docs/API.md) · [Storage and recovery](docs/STORAGE.md) ·
+[Upgrading to 0.3](docs/UPGRADING.md) · [Benchmark guide](benchmarks/README.md) ·
+[Changelog](CHANGELOG.md).
+
 ## How it works
 
 ```
@@ -25,6 +29,7 @@ Query → Bi-encoder + BM25 → Cross-encoder rerank → Ranked results
 ```
 
 **Three retrieval passes:**
+
 1. **Graph walk** — Extract entities from query, walk the knowledge graph using spectral-informed depth (the spectral gap of the graph Laplacian determines how far to search)
 2. **Scoped vector search** — Bi-encoder similarity + BM25 keyword matching, with adaptive query expansion for multi-topic queries
 3. **Cross-encoder rerank** — Rerank top candidates with a cross-encoder, fused with temporal decay and access frequency
@@ -113,50 +118,19 @@ are documented in the report.
 
 ### Reproducing benchmarks
 
-```bash
-cd benchmarks
-
-# Install benchmark-only comparison dependencies first
-pip install -e "..[bench,llm]"
-
-# LongMemEval-S (419 rows in the official retrieval scope)
-python download_data.py
-python longmemeval_final.py --mode balanced --scope official
-python longmemeval_final.py --scope official --retriever flat-bm25
-python longmemeval_final.py --scope official --retriever minilm
-
-# Matched cross-encoder controls + component-attribution ablation
-python controls_ce.py
-python controls_ablation.py
-
-# Fresh end-to-end QA (needs ANTHROPIC_API_KEY; ~$17 plain, ~$34 all four arms)
-# Choose a new directory; existing output resumes completed questions.
-python longmemeval_qa.py --stage retrieve --output-dir results/new-run
-python longmemeval_qa.py --stage qa --arm memoria --output-dir results/new-run
-python longmemeval_qa.py --stage qa --arm hybrid-ce-dual --output-dir results/new-run
-python longmemeval_qa.py --stage qa --arm memoria --cot --output-dir results/new-run
-python longmemeval_qa.py --stage qa --arm hybrid-ce-dual --cot --output-dir results/new-run
-python longmemeval_qa.py --stage report --output-dir results/new-run
-
-# LoCoMo session-evidence diagnostic
-python locomo_bench.py --mode balanced --profile windowed
-python locomo_bench.py --mode balanced --profile legacy
-python locomo_bench.py --retriever flat-bm25
-python locomo_bench.py --retriever minilm
-
-# PerLTQA English v2 untouched external holdout
-python download_perltqa.py
-python perltqa_bench.py --retriever memoria --output results_perltqa.json
-python perltqa_bench.py --retriever window-bm25 --output results_perltqa_bm25.json
-python perltqa_bench.py --retriever window-minilm --output results_perltqa_minilm.json
-```
+Follow the [complete benchmark guide](benchmarks/README.md) for dataset setup,
+all 17 retrieval/control configurations, four fresh QA arms, and comparison
+commands. Retrieval runs locally without API credentials; QA requires
+`ANTHROPIC_API_KEY`. The October four-arm QA run cost an estimated $34.31.
+Use a new output directory for each fresh run; existing QA records are resumed.
 
 ## Installation
 
 ### Requirements
 
 - Python 3.10+
-- ~500 MB disk for embedding model (downloaded on first use)
+- Default neural models download on first use (about 215 MB in the audited
+  environment); Python dependencies need additional disk space
 - No API keys required for core functionality
 - Optional: Anthropic API key for LLM-powered entity extraction (falls back to heuristic extraction without it)
 
@@ -165,19 +139,26 @@ python perltqa_bench.py --retriever window-minilm --output results_perltqa_minil
 ```bash
 git clone https://github.com/tomdif/memoria.git
 cd memoria
-pip install -e .
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
 ```
+
+The commands above use a POSIX shell. On Windows, activate the environment with
+`.venv\Scripts\Activate.ps1` in PowerShell. Lifecycle hooks and the warm daemon
+currently target POSIX systems; the tested CI platforms are Linux and macOS.
 
 For optional integrations, install the corresponding extra:
 
 ```bash
-pip install -e ".[mcp]"      # MCP server
-pip install -e ".[llm]"      # Anthropic-powered extraction
-pip install -e ".[dev]"      # Test suite
+python -m pip install -e ".[mcp]"      # Optional MCP SDK/CLI tooling
+python -m pip install -e ".[llm]"      # Anthropic-powered extraction and QA benchmarks
+python -m pip install -e ".[dev]"      # Test suite and lint
 ```
 
-Memoria is not currently published on PyPI; source installation is the
-supported path.
+Source installation is the supported path. The built-in stdio MCP server is
+included in the core package; it does not require the optional MCP SDK.
+For an existing installation, follow the [upgrade guide](docs/UPGRADING.md).
 
 ### Quick start without model downloads
 
@@ -204,16 +185,23 @@ with Memoria("./memory.db", enable_embeddings=False) as memory:
 
 ## Setup by tool
 
+Use the Python interpreter where Memoria is installed. GUI clients may not
+inherit an activated environment: replace `/absolute/path/to/memoria/.venv/bin/python`
+in their configurations with the output of
+`python -c 'import sys; print(sys.executable)'`. On Windows this is typically
+`.venv\Scripts\python.exe` under your checkout.
+
 ### Claude Code
 
 ```bash
 # Install deterministic lifecycle hooks for all local projects
-pip install -e .
+python -m pip install -e .
 memoria install claude
 memoria doctor
 
 # Optional: expose the manual inspection and cleanup tools too
-claude mcp add memoria -- env MEMORIA_SCOPE=auto python3 -m memoria.mcp_server
+claude mcp add memoria -- env MEMORIA_SCOPE=auto \
+  "$(python -c 'import sys; print(sys.executable)')" -m memoria.mcp_server
 ```
 
 The installer adds two Claude Code hooks without replacing your existing
@@ -265,13 +253,14 @@ for the current repository; Codex must also trust that project configuration.
 
 ### Cursor
 
-1. Add to your Cursor MCP settings (`.cursor/mcp.json` in your project root or `~/.cursor/mcp.json` globally):
+1. Add the following to [Cursor's MCP configuration](https://cursor.com/docs/mcp):
+   `.cursor/mcp.json` in your project or `~/.cursor/mcp.json` globally.
 
 ```json
 {
   "mcpServers": {
     "memoria": {
-      "command": "python",
+      "command": "/absolute/path/to/memoria/.venv/bin/python",
       "args": ["-m", "memoria.mcp_server"],
       "env": {
         "MEMORIA_DB": "~/.memoria/memoria.db",
@@ -282,24 +271,34 @@ for the current repository; Codex must also trust that project configuration.
 }
 ```
 
-2. Add the MCP fallback guidance to your Cursor rules file (`.cursor/rules` or `.cursorrules`):
+2. Create `.cursor/rules/memoria.mdc` with the frontmatter below, then append
+   the contents of [CLAUDE.md](CLAUDE.md). Cursor project rules require the
+   [`.mdc` format](https://cursor.com/docs/rules).
 
-```
-Copy the contents of CLAUDE.md from the memoria repo into your rules file.
+```markdown
+---
+description: Use Memoria for durable context across conversations
+alwaysApply: true
+---
 ```
 
 Restart Cursor. Because Cursor does not use the Claude lifecycle hooks above,
 recall and saving still depend on the agent following these MCP instructions.
 
-### Windsurf
+### Windsurf / Devin Desktop (Cascade)
 
-1. Add to your Windsurf MCP configuration (`~/.windsurf/mcp.json`):
+1. In Cascade's Actions menu, open the MCP configuration file and add the
+   following server. The current [Cascade documentation](https://docs.devin.ai/desktop/cascade/mcp)
+   uses `~/.config/devin/mcp_config.json` on macOS/Linux and
+   `%APPDATA%\devin\mcp_config.json` on Windows. Opening it through the editor
+   avoids guessing the location on older installations. These steps apply to
+   Cascade; Devin Local uses its own configuration flow.
 
 ```json
 {
   "mcpServers": {
     "memoria": {
-      "command": "python",
+      "command": "/absolute/path/to/memoria/.venv/bin/python",
       "args": ["-m", "memoria.mcp_server"],
       "env": {
         "MEMORIA_DB": "~/.memoria/memoria.db",
@@ -310,26 +309,34 @@ recall and saving still depend on the agent following these MCP instructions.
 }
 ```
 
-2. Add the contents of `CLAUDE.md` from the Memoria repository as MCP fallback guidance.
+2. Add the contents of [CLAUDE.md](CLAUDE.md) as MCP fallback guidance.
 
 ### Cline (VS Code)
 
-1. Add to Cline's MCP settings (VS Code settings → Cline → MCP Servers):
+1. In Cline's MCP Servers panel, select Configure → Configure MCP Servers.
+   Add the entry under `mcpServers`, as described in
+   [Cline's MCP documentation](https://github.com/cline/cline/blob/main/docs/mcp/mcp-overview.mdx):
 
 ```json
 {
-  "memoria": {
-    "command": "python",
-    "args": ["-m", "memoria.mcp_server"],
-    "env": {
-      "MEMORIA_DB": "~/.memoria/memoria.db",
-      "MEMORIA_SCOPE": "auto"
+  "mcpServers": {
+    "memoria": {
+      "command": "/absolute/path/to/memoria/.venv/bin/python",
+      "args": ["-m", "memoria.mcp_server"],
+      "env": {
+        "MEMORIA_DB": "~/.memoria/memoria.db",
+        "MEMORIA_SCOPE": "auto"
+      }
     }
   }
 }
 ```
 
-2. Add the contents of `CLAUDE.md` from the Memoria repository as MCP fallback guidance.
+2. Add the contents of [CLAUDE.md](CLAUDE.md) as MCP fallback guidance.
+
+For MCP clients, `auto` resolves the server process's working directory. If the
+client does not start the server in the intended repository, set
+`MEMORIA_SCOPE=project:/absolute/path/to/your/project` explicitly.
 
 ### Custom agents (HTTP API)
 
@@ -397,6 +404,9 @@ Add `"format": "json"` to `/recall` to receive ranked facts, IDs, scores,
 temporal validity, and original provenance. The default text response remains
 available. `as_of` accepts a Unix timestamp for historical recall. The MCP
 `memoria_recall` tool accepts the same `format` and `as_of` fields.
+See the [API reference](docs/API.md) for the complete endpoint list, response
+structure, extraction behavior, and interface differences. The HTTP API is a
+REST interface; it is not an MCP-over-HTTP endpoint.
 
 ### Any tool (CLI)
 
@@ -484,8 +494,9 @@ preferences.
 | `MEMORIA_HARD_MAX_DB_MB` | (none) | Per-scope hard quota: refuses new memory writes at the boundary without deleting existing data |
 | `MEMORIA_DAEMON_SOCKET` | `~/.memoria/memoria.sock` | Local hook-daemon socket |
 | `MEMORIA_DAEMON_LOG` | `~/.memoria/daemon.log` | Hook-daemon log path |
-| `MEMORIA_NO_LLM` | (none) | Set to `1`, `true`, or `yes` to disable optional MCP LLM extraction |
-| `ANTHROPIC_API_KEY` | (none) | Optional, enables LLM entity extraction |
+| `MEMORIA_NO_LLM` | (none) | Set to `1`, `true`, or `yes` to disable optional CLI/MCP LLM extraction |
+| `MEMORIA_HOOK_DEBUG` | (none) | Set to `1` to report hook errors to stderr |
+| `ANTHROPIC_API_KEY` | (none) | Enables optional CLI/MCP LLM extraction when the `llm` extra is installed; required for QA benchmarks |
 
 CLI commands honor `MEMORIA_DB`, `MEMORIA_SCOPE`, and `MEMORIA_MODEL`;
 explicit `--db` and `--scope` flags take precedence, including server commands.
@@ -552,11 +563,13 @@ capacity planning, and safe production procedures.
 ```
 
 **Layers:**
+
 - **L1 — Raw store**: Verbatim provenance, retained locally or moved to checksummed JSONL archives
 - **L2 — Knowledge graph**: Entities, relations, temporal versioning (supersede-on-conflict)
 - **L3 — Spectral clusters**: Emergent topic clusters from graph Laplacian eigenvectors
 
 **Key design choices:**
+
 - **Atomic writes**: Raw provenance, entity updates, facts, and supersession commit together; failed writes and failed consolidation roll back
 - **Local-first**: Everything runs on your machine. No cloud, no API calls for core functionality
 - **Scoped SQLite files**: Global memory stays in `~/.memoria/memoria.db`; project memory uses one isolated database per Git repository under `~/.memoria/scopes/`
@@ -572,7 +585,7 @@ When connected via MCP, memoria exposes these tools:
 | Tool | Description |
 |------|-------------|
 | `memoria_remember` | Store text in long-term memory |
-| `memoria_recall` | Retrieve relevant memories (with mode: speed/balanced/quality) |
+| `memoria_recall` | Retrieve relevant memories; supports `mode`, `format: json`, and historical `as_of` |
 | `memoria_entity` | Get everything known about an entity |
 | `memoria_history` | Temporal history of an entity-predicate pair |
 | `memoria_consolidate` | Run memory consolidation (includes automatic self-cleansing) |
@@ -581,6 +594,20 @@ When connected via MCP, memoria exposes these tools:
 | `memoria_compress` | Compress memory to a token budget using spectral ranking |
 | `memoria_budget_report` | Preview compression at each tier (L0/L1/L2/L3) |
 | `memoria_cleanup` | Clean up the knowledge graph (delete, merge, deduplicate, purge) |
+
+## Development and verification
+
+```bash
+python -m pip install -e '.[dev]'
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 python -m pytest -q
+ruff check .
+```
+
+The 0.3 suite has 194 tests and needs neither model downloads nor API keys.
+[CI](https://github.com/tomdif/memoria/actions/workflows/ci.yml) checks Linux
+with Python 3.10/3.13, macOS with Python 3.13, and wheel/sdist packaging.
+See the [documentation index](docs/README.md) for operational guides and
+the separate product-reliability and benchmark evidence.
 
 ## License
 
