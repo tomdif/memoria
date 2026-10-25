@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import fcntl
 import json
 import os
 import socket
@@ -62,6 +63,8 @@ def _exchange(
                 break
     if not chunks:
         raise ConnectionError("daemon closed the connection without a response")
+    if len(chunks) > MAX_MESSAGE_BYTES:
+        raise ValueError("daemon response is too large")
     response = json.loads(bytes(chunks).split(b"\n", 1)[0])
     if not isinstance(response, dict):
         raise ValueError("invalid daemon response")
@@ -153,8 +156,15 @@ def hook_request(
     return output if isinstance(output, dict) else None
 
 
-class _DaemonServer(socketserver.UnixStreamServer):
+class _DaemonServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
     allow_reuse_address = False
+    request_queue_size = 32
+
+    def __init__(self, *args, **kwargs):
+        # Keep shared neural models and pending-turn handling serialized while
+        # allowing ping/shutdown to respond during slow inference.
+        self.hook_lock = threading.Lock()
+        super().__init__(*args, **kwargs)
 
     def server_bind(self) -> None:
         super().server_bind()
@@ -166,7 +176,11 @@ class _DaemonServer(socketserver.UnixStreamServer):
 
 class _RequestHandler(socketserver.StreamRequestHandler):
     def handle(self) -> None:
-        raw = self.rfile.readline(MAX_MESSAGE_BYTES + 1)
+        self.request.settimeout(10.0)
+        try:
+            raw = self.rfile.readline(MAX_MESSAGE_BYTES + 1)
+        except (OSError, ValueError):
+            return
         if len(raw) > MAX_MESSAGE_BYTES:
             self._respond({"ok": False, "error": "request is too large"})
             return
@@ -187,11 +201,12 @@ class _RequestHandler(socketserver.StreamRequestHandler):
                 # Import lazily so ping and management commands stay fast.
                 from .hooks import handle_stop, handle_user_prompt
 
-                output = (
-                    handle_user_prompt(event)
-                    if command == "user-prompt"
-                    else handle_stop(event)
-                )
+                with self.server.hook_lock:
+                    output = (
+                        handle_user_prompt(event)
+                        if command == "user-prompt"
+                        else handle_stop(event)
+                    )
                 response = {"ok": True, "output": output}
             else:
                 raise ValueError(f"unknown daemon command: {command}")
@@ -216,20 +231,27 @@ def serve(*, path: str | Path | None = None) -> None:
         except OSError:
             pass
 
-    if target.exists():
-        if daemon_status(path=target):
-            return
-        target.unlink()
-
-    server = _DaemonServer(str(target), _RequestHandler)
+    # Hold an OS lock for the complete server lifetime. A second startup must
+    # never unlink the live socket just because its first ping timed out.
+    lock_path = target.with_suffix(".lock")
+    lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0), 0o600)
     try:
-        server.serve_forever(poll_interval=0.1)
-    finally:
-        server.server_close()
         try:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return
+        if target.exists():
+            if daemon_status(path=target):
+                return
+            target.unlink()
+        server = _DaemonServer(str(target), _RequestHandler)
+        try:
+            server.serve_forever(poll_interval=0.1)
+        finally:
+            server.server_close()
             target.unlink(missing_ok=True)
-        except OSError:
-            pass
+    finally:
+        os.close(lock_fd)
 
 
 def main() -> None:

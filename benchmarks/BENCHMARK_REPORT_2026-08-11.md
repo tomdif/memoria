@@ -1,5 +1,11 @@
 # Memoria benchmark report — 2026-08-11
 
+This is the historical August retrieval report. The [October 25 rerun](BENCHMARK_RERUN_2026-10-25.md)
+reproduces the final frozen retrieval results and includes fresh QA. Historical
+timings and intermediate LoCoMo figures below describe the August experiments.
+Use the [benchmark guide](README.md) for current commands that preserve these
+artifacts.
+
 ## Bottom line
 
 Memoria's session retriever is strong on LongMemEval-S, and the new grouped
@@ -253,6 +259,10 @@ windowed rendering. The local same-data controls above are the valid comparison.
    hashes are in the result manifest.
 
 ## Reproduction
+
+The following records the original invocation pattern. For a new run, use the
+[current reproduction guide](README.md); the historical output paths below
+must not be reused for new results.
 
 ```bash
 pip install -e ".[dev]"

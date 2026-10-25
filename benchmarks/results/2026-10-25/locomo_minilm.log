@@ -1,0 +1,39 @@
+Loaded 10 conversations, 1986 QA pairs
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 103/103 [00:00<00:00, 16295.62it/s]
+[1mBertModel LOAD REPORT[0m from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  |
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  |
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+  250 scored R-all@5=0.452
+  500 scored R-all@5=0.510
+  750 scored R-all@5=0.485
+  1000 scored R-all@5=0.478
+  1250 scored R-all@5=0.452
+  1500 scored R-all@5=0.451
+  1750 scored R-all@5=0.440
+
+======================================================================
+LoCoMo retrieval diagnostic — minilm
+======================================================================
+Core rows:       1536 (categories 1-4)
+All scored rows: 1982 (4 without evidence skipped)
+Core Recall-All@5:  41.5%
+Core Recall-All@10: 55.7%
+Core NDCG-Any@10:   0.4612
+All Recall-All@5:   43.1%
+All Recall-All@10:  57.4%
+Time:   18.2s (109.2 q/s)
+
+By category:
+  single-hop                 R-all@5=0.163  R-all@10=0.301  NDCG@10=0.415  (n=282)
+  temporal                   R-all@5=0.542  R-all@10=0.692  NDCG@10=0.541  (n=321)
+  multi-hop                  R-all@5=0.239  R-all@10=0.359  NDCG@10=0.315  (n=92)
+  open-domain                R-all@5=0.470  R-all@10=0.614  NDCG@10=0.462  (n=841)
+  adversarial                R-all@5=0.487  R-all@10=0.632  NDCG@10=0.475  (n=446)
+
+Saved to /Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/locomo_minilm.json

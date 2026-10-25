@@ -1,0 +1,31 @@
+  50/419 Recall-All@5=0.960 Recall-All@10=0.960 (350.9 q/s)
+  100/419 Recall-All@5=0.740 Recall-All@10=0.810 (355.7 q/s)
+  150/419 Recall-All@5=0.687 Recall-All@10=0.773 (359.5 q/s)
+  200/419 Recall-All@5=0.695 Recall-All@10=0.795 (361.3 q/s)
+  250/419 Recall-All@5=0.684 Recall-All@10=0.776 (363.5 q/s)
+  300/419 Recall-All@5=0.677 Recall-All@10=0.780 (364.7 q/s)
+  350/419 Recall-All@5=0.700 Recall-All@10=0.800 (363.9 q/s)
+  400/419 Recall-All@5=0.738 Recall-All@10=0.825 (364.5 q/s)
+
+===========================================================================
+LongMemEval-S retrieval — flat-bm25 (official)
+===========================================================================
+Rows:          419 scored / 500 total
+Excluded:      30 abstention, 51 without user-side evidence
+Recall-Any@5:  88.8%
+Recall-All@5:  74.2% (108 failures, 3 impossible at k=5)
+NDCG-Any@5:    0.7722
+Recall-Any@10: 93.1%
+Recall-All@10: 82.6%
+NDCG-Any@10:   0.7962
+Time:   1s (363.4 q/s)
+
+By type:
+  knowledge-update                R-all@5=0.958  R-all@10=0.972  NDCG@10=0.924  (n=72)
+  multi-session                   R-all@5=0.562  R-all@10=0.694  NDCG@10=0.728  (n=121)
+  single-session-assistant        R-all@5=0.800  R-all@10=0.800  NDCG@10=0.800  (n=5)
+  single-session-preference       R-all@5=0.667  R-all@10=0.767  NDCG@10=0.605  (n=30)
+  single-session-user             R-all@5=0.938  R-all@10=0.953  NDCG@10=0.912  (n=64)
+  temporal-reasoning              R-all@5=0.709  R-all@10=0.819  NDCG@10=0.775  (n=127)
+
+Saved to /Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/longmemeval_s_flat_bm25.json

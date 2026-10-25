@@ -1,5 +1,9 @@
 # Addendum — cross-encoder attribution controls (2026-08-12)
 
+This is the historical August control/ablation report. All seven arms and their
+question-type breakdowns reproduce exactly in the [October rerun](BENCHMARK_RERUN_2026-10-25.md).
+Use the [benchmark guide](README.md) to run them into a new output directory.
+
 The 2026-08-11 report compared Memoria's balanced session retriever against
 flat BM25 and plain MiniLM dense retrieval. Neither baseline used a reranker,
 so the headline gap could not be attributed: it might have been nothing more
@@ -26,7 +30,7 @@ Ladder of controls, each adding one Memoria design element:
    and user+assistant[:512] renderings (Memoria's dual-pass), still pure CE
    ordering.
 
-Two ablations then isolate the remaining pipeline elements:
+Two component ablations and their combined arm isolate the remaining elements:
 
 - `blend-only` — hybrid candidates + dual-pass CE + Memoria's final fusion
   (0.40·CE-minmax + 0.60·stage1-norm) but **no** expansion.

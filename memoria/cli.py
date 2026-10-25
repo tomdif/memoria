@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import sqlite3
 import sys
 import time
 
@@ -40,18 +42,19 @@ def make_llm_call():
         return None
 
 
-def main():
+def _main():
     parser = argparse.ArgumentParser(
         prog="memoria",
         description="Spectral memory architecture with CAG-informed retrieval",
     )
-    parser.add_argument("--db", default="~/.memoria/memoria.db", help="Database path")
+    parser.add_argument("--db", default=os.environ.get("MEMORIA_DB", "~/.memoria/memoria.db"), help="Database path")
     parser.add_argument(
         "--scope",
-        default="global",
+        default=os.environ.get("MEMORIA_SCOPE", "global"),
         help="Memory scope: global, auto, project, or project:/path",
     )
     parser.add_argument("--no-llm", action="store_true", help="Disable LLM extraction (heuristic only)")
+    parser.add_argument("--no-models", action="store_true", help="Use graph and lexical search without downloading models")
     sub = parser.add_subparsers(dest="command")
 
     # remember
@@ -67,6 +70,9 @@ def main():
     p_rec.add_argument("-m", "--mode", default="balanced",
                        choices=["speed", "balanced", "quality"],
                        help="Retrieval mode (default: balanced)")
+
+    p_rec.add_argument("--json", action="store_true", help="Return structured facts and provenance")
+    p_rec.add_argument("--as-of", type=float, default=None, help="Recall facts valid at this Unix timestamp")
 
     # entity
     p_ent = sub.add_parser("entity", help="Get everything about an entity")
@@ -88,6 +94,11 @@ def main():
     # storage
     p_storage = sub.add_parser("storage", help="Inspect and maintain memory storage")
     storage_sub = p_storage.add_subparsers(dest="storage_action", required=True)
+    p_backup = storage_sub.add_parser("backup", help="Save a complete verified SQLite snapshot")
+    p_backup.add_argument("destination", help="New backup file; existing files are never overwritten")
+    p_backup.add_argument("--json", action="store_true")
+    p_check = storage_sub.add_parser("check", help="Check SQLite, foreign keys, and FTS integrity")
+    p_check.add_argument("--json", action="store_true")
     p_storage_status = storage_sub.add_parser("status", help="Show database and hook-state usage")
     p_storage_status.add_argument(
         "--all-scopes", action="store_true", help="Include global and every project database"
@@ -194,6 +205,14 @@ def main():
         parser.print_help()
         return
 
+    if args.no_models:
+        os.environ["MEMORIA_NO_MODELS"] = "1"
+    if args.no_llm:
+        os.environ["MEMORIA_NO_LLM"] = "1"
+    if args.command in {"serve", "serve-http"}:
+        os.environ["MEMORIA_DB"] = args.db
+        os.environ["MEMORIA_SCOPE"] = args.scope
+
     if args.command == "serve":
         from .mcp_server import run_mcp_server
         run_mcp_server()
@@ -257,21 +276,24 @@ def main():
             raise SystemExit(1)
         return
 
-    llm_call = None if args.no_llm else make_llm_call()
+    use_llm = not args.no_llm and os.environ.get("MEMORIA_NO_LLM", "").lower() not in {"1", "true", "yes"}
+    llm_call = make_llm_call() if use_llm and args.command in {"remember", "ingest", "consolidate"} else None
 
     with Memoria(
         db_path=args.db,
         llm_call=llm_call,
         scope=args.scope,
-        enable_embeddings=args.command != "storage",
+        model_name=os.environ.get("MEMORIA_MODEL", "all-MiniLM-L6-v2"),
+        enable_embeddings=False if args.command == "storage" else None,
     ) as m:
         if args.command == "remember":
             result = m.remember(args.text, role=args.role, session_id=args.session)
             print(json.dumps(result, indent=2, default=str))
 
         elif args.command == "recall":
-            result = m.recall_formatted(args.query, top_k=args.top_k, mode=args.mode)
-            print(result)
+            recall = m.recall_json if args.json else m.recall_formatted
+            result = recall(args.query, top_k=args.top_k, mode=args.mode, as_of=args.as_of)
+            print(json.dumps(result, indent=2) if args.json else result)
 
         elif args.command == "entity":
             result = m.entity_context(args.name)
@@ -306,7 +328,15 @@ def main():
                 print(f"Eigenvalues: {[f'{e:.4f}' for e in result['eigenvalues'][:6]]}")
 
         elif args.command == "storage":
-            if args.storage_action == "status":
+            if args.storage_action == "backup":
+                result = m.backup(args.destination)
+            elif args.storage_action == "check":
+                result = m.check_storage()
+                print(json.dumps(result, indent=2))
+                if not result["ok"]:
+                    raise SystemExit(1)
+                return
+            elif args.storage_action == "status":
                 result = m.storage_status(all_scopes=args.all_scopes)
             elif args.storage_action == "retain":
                 if args.older_than_days is None and args.keep_latest is None:
@@ -453,8 +483,7 @@ def main():
             elif p.is_dir():
                 files = sorted(p.glob("**/*.txt")) + sorted(p.glob("**/*.md")) + sorted(p.glob("**/*.json"))
             else:
-                print(f"Not found: {p}", file=sys.stderr)
-                return
+                raise ValueError(f"Not found: {p}")
 
             total = {"entities_added": 0, "triples_added": 0, "files": 0}
             for f in files:
@@ -468,6 +497,14 @@ def main():
                 print(f"  Ingested {f.name}: +{result.get('entities_added', 0)} entities, +{result.get('triples_added', 0)} triples")
 
             print(f"\nTotal: {total['files']} files, {total['entities_added']} entities, {total['triples_added']} triples")
+
+
+def main():
+    try:
+        _main()
+    except (ValueError, OSError, sqlite3.Error, RuntimeError) as exc:
+        print(f"memoria: {exc}", file=sys.stderr)
+        raise SystemExit(1) from None
 
 
 if __name__ == "__main__":

@@ -1,0 +1,51 @@
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 103/103 [00:00<00:00, 7999.95it/s]
+[1mBertModel LOAD REPORT[0m from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  |
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  |
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+
+Loading weights:   0%|          | 0/201 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 201/201 [00:00<00:00, 7697.59it/s]
+[1mBertForSequenceClassification LOAD REPORT[0m from: cross-encoder/ms-marco-MiniLM-L-12-v2
+Key                          | Status     |  |
+-----------------------------+------------+--+-
+bert.embeddings.position_ids | UNEXPECTED |  |
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+  50/419 Recall-All@5=1.000 Recall-All@10=1.000 (1.8 q/s)
+  100/419 Recall-All@5=0.970 Recall-All@10=0.990 (2.5 q/s)
+  150/419 Recall-All@5=0.947 Recall-All@10=0.973 (2.6 q/s)
+  200/419 Recall-All@5=0.960 Recall-All@10=0.980 (2.6 q/s)
+  250/419 Recall-All@5=0.948 Recall-All@10=0.976 (2.6 q/s)
+  300/419 Recall-All@5=0.930 Recall-All@10=0.967 (2.7 q/s)
+  350/419 Recall-All@5=0.931 Recall-All@10=0.966 (2.9 q/s)
+  400/419 Recall-All@5=0.940 Recall-All@10=0.970 (2.9 q/s)
+
+===========================================================================
+LongMemEval-S retrieval — memoria-balanced (official)
+===========================================================================
+Rows:          419 scored / 500 total
+Excluded:      30 abstention, 51 without user-side evidence
+Recall-Any@5:  98.1%
+Recall-All@5:  94.3% (24 failures, 3 impossible at k=5)
+NDCG-Any@5:    0.9414
+Recall-Any@10: 99.0%
+Recall-All@10: 97.1%
+NDCG-Any@10:   0.9478
+Time:   144s (2.9 q/s)
+
+By type:
+  knowledge-update                R-all@5=1.000  R-all@10=1.000  NDCG@10=0.989  (n=72)
+  multi-session                   R-all@5=0.942  R-all@10=0.975  NDCG@10=0.959  (n=121)
+  single-session-assistant        R-all@5=1.000  R-all@10=1.000  NDCG@10=1.000  (n=5)
+  single-session-preference       R-all@5=0.967  R-all@10=0.967  NDCG@10=0.909  (n=30)
+  single-session-user             R-all@5=1.000  R-all@10=1.000  NDCG@10=0.994  (n=64)
+  temporal-reasoning              R-all@5=0.874  R-all@10=0.937  NDCG@10=0.898  (n=127)
+
+Saved to benchmarks/results/2026-10-25/longmemeval_s_balanced.json

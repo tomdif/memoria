@@ -1,0 +1,23 @@
+arm=hybrid-ce-dual cot=True: 0 already done, 500 to run
+  25 done  acc so far=0.960  cost so far=$0.39
+  50 done  acc so far=0.940  cost so far=$0.79
+  75 done  acc so far=0.947  cost so far=$1.19
+  100 done  acc so far=0.870  cost so far=$1.69
+  125 done  acc so far=0.840  cost so far=$2.17
+  150 done  acc so far=0.827  cost so far=$2.71
+  175 done  acc so far=0.800  cost so far=$3.18
+  200 done  acc so far=0.815  cost so far=$3.60
+  225 done  acc so far=0.818  cost so far=$4.02
+  250 done  acc so far=0.816  cost so far=$4.45
+  275 done  acc so far=0.800  cost so far=$4.91
+  300 done  acc so far=0.790  cost so far=$5.35
+  325 done  acc so far=0.797  cost so far=$5.78
+  350 done  acc so far=0.806  cost so far=$6.23
+  375 done  acc so far=0.813  cost so far=$6.65
+  400 done  acc so far=0.820  cost so far=$7.10
+  425 done  acc so far=0.819  cost so far=$7.54
+  450 done  acc so far=0.822  cost so far=$7.94
+  475 done  acc so far=0.829  cost so far=$8.34
+  500 done  acc so far=0.838  cost so far=$8.72
+arm=hybrid-ce-dual: ran 500 rows in 190s, cost this run $8.72
+  tokens: reader 7269397/157734, judge 320247/1973

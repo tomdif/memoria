@@ -1,0 +1,41 @@
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 103/103 [00:00<00:00, 11793.01it/s]
+[1mBertModel LOAD REPORT[0m from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  |
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  |
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+  50/419 Recall-All@5=0.920 Recall-All@10=0.980 (5.2 q/s)
+  100/419 Recall-All@5=0.840 Recall-All@10=0.950 (6.5 q/s)
+  150/419 Recall-All@5=0.807 Recall-All@10=0.907 (7.1 q/s)
+  200/419 Recall-All@5=0.835 Recall-All@10=0.920 (6.9 q/s)
+  250/419 Recall-All@5=0.836 Recall-All@10=0.928 (6.3 q/s)
+  300/419 Recall-All@5=0.817 Recall-All@10=0.917 (6.0 q/s)
+  350/419 Recall-All@5=0.829 Recall-All@10=0.926 (5.8 q/s)
+  400/419 Recall-All@5=0.848 Recall-All@10=0.935 (5.7 q/s)
+
+===========================================================================
+LongMemEval-S retrieval — minilm (official)
+===========================================================================
+Rows:          419 scored / 500 total
+Excluded:      30 abstention, 51 without user-side evidence
+Recall-Any@5:  95.9%
+Recall-All@5:  85.4% (61 failures, 3 impossible at k=5)
+NDCG-Any@5:    0.8615
+Recall-Any@10: 98.1%
+Recall-All@10: 93.8%
+NDCG-Any@10:   0.8785
+Time:   74s (5.6 q/s)
+
+By type:
+  knowledge-update                R-all@5=0.972  R-all@10=1.000  NDCG@10=0.939  (n=72)
+  multi-session                   R-all@5=0.777  R-all@10=0.884  NDCG@10=0.868  (n=121)
+  single-session-assistant        R-all@5=1.000  R-all@10=1.000  NDCG@10=1.000  (n=5)
+  single-session-preference       R-all@5=0.967  R-all@10=0.967  NDCG@10=0.881  (n=30)
+  single-session-user             R-all@5=0.922  R-all@10=0.984  NDCG@10=0.925  (n=64)
+  temporal-reasoning              R-all@5=0.795  R-all@10=0.921  NDCG@10=0.825  (n=127)
+
+Saved to /Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/longmemeval_s_minilm.json

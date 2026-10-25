@@ -6,8 +6,8 @@ Pass 1 — Graph walk: Extract entities from query, look up in KG,
 Pass 2 — Hybrid candidate search: scoped vectors plus BM25 lexical matching.
 Pass 3 — Cross-encoder rerank fused with temporal decay and confidence.
 
-The screening radius from the spectral gap gives a provable completeness
-guarantee — if you search within the radius, you haven't missed anything relevant.
+The spectral gap supplies a graph-walk depth heuristic. It does not guarantee
+that every semantically relevant fact will be retrieved.
 """
 
 from __future__ import annotations
@@ -15,8 +15,11 @@ from __future__ import annotations
 import hashlib
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
+from collections import OrderedDict
+from contextlib import redirect_stdout
+import sys
 
 import numpy as np
 
@@ -24,7 +27,6 @@ from .graph import KnowledgeGraph
 from .spectral import (
     build_adjacency,
     local_gap,
-    screening_radius as compute_screening_radius,
 )
 from .embeddings import Embedder, deserialize_embedding, top_k_similar
 
@@ -103,33 +105,44 @@ class RetrievalResponse:
 class EmbeddingCache:
     """Cache session embeddings by content hash for fast repeated lookups."""
 
-    def __init__(self, embedder: Embedder):
+    def __init__(self, embedder: Embedder, max_entries: int = 4096):
+        if isinstance(max_entries, bool) or not isinstance(max_entries, int) or max_entries < 1:
+            raise ValueError("max_entries must be a positive integer")
         self.embedder = embedder
-        self._cache: dict[str, np.ndarray] = {}
+        self.max_entries = max_entries
+        self._cache: OrderedDict[str, np.ndarray] = OrderedDict()
+
+    def _put(self, key: str, value: np.ndarray):
+        # Copy so a cached row cannot keep a whole batch allocation alive.
+        self._cache[key] = np.array(value, dtype=np.float32, copy=True)
+        self._cache.move_to_end(key)
+        while len(self._cache) > self.max_entries:
+            self._cache.popitem(last=False)
 
     def get(self, text: str) -> np.ndarray:
         key = hashlib.md5(text.encode()).hexdigest()
         if key not in self._cache:
-            self._cache[key] = self.embedder.embed_single(text)
+            self._put(key, self.embedder.embed_single(text))
+        self._cache.move_to_end(key)
         return self._cache[key]
 
     def get_batch(self, texts: list[str]) -> np.ndarray:
         result = np.empty((len(texts), self.embedder.dimension), dtype=np.float32)
-        to_embed_idx = []
-        to_embed_texts = []
+        missing: dict[str, tuple[str, list[int]]] = {}
         for i, text in enumerate(texts):
             key = hashlib.md5(text.encode()).hexdigest()
             if key in self._cache:
                 result[i] = self._cache[key]
+                self._cache.move_to_end(key)
             else:
-                to_embed_idx.append(i)
-                to_embed_texts.append(text)
-        if to_embed_texts:
-            new_embs = self.embedder.embed(to_embed_texts)
-            for j, i in enumerate(to_embed_idx):
-                result[i] = new_embs[j]
-                key = hashlib.md5(texts[i].encode()).hexdigest()
-                self._cache[key] = new_embs[j]
+                missing.setdefault(key, (text, []))[1].append(i)
+        if missing:
+            new_embs = np.asarray(self.embedder.embed([item[0] for item in missing.values()]))
+            if new_embs.shape != (len(missing), self.embedder.dimension):
+                raise ValueError("embedder returned an unexpected batch shape")
+            for vector, (key, (_, indices)) in zip(new_embs, missing.items()):
+                result[indices] = vector
+                self._put(key, vector)
         return result
 
     @property
@@ -221,10 +234,11 @@ class Retriever:
     """Three-pass retrieval engine with spectral-informed depth."""
 
     def __init__(self, kg: KnowledgeGraph, embedder: Embedder | None = None,
-                 llm_call=None):
+                 llm_call=None, *, enable_reranking: bool = True):
         self.kg = kg
         self.embedder = embedder
         self.llm_call = llm_call
+        self.enable_reranking = enable_reranking
         self._emb_cache = EmbeddingCache(embedder) if embedder else None
         self._reranker = None
 
@@ -232,13 +246,19 @@ class Retriever:
     def reranker(self):
         if self._reranker is None:
             from sentence_transformers import CrossEncoder
-            self._reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-12-v2")
+            with redirect_stdout(sys.stderr):
+                self._reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-12-v2")
         return self._reranker
 
     def retrieve(self, query: str, top_k: int = 20,
                  as_of: float | None = None,
                  mode: RetrievalMode = RetrievalMode.BALANCED) -> RetrievalResponse:
         """Retrieve graph facts with the same hybrid stack used by benchmarks."""
+        if top_k <= 0:
+            return RetrievalResponse([], [], 0, 1.0, [], mode.value)
+        all_triples = self.kg.get_triples(active_only=(as_of is None), as_of=as_of)
+        if not all_triples:
+            return RetrievalResponse([], [], 0, 1.0, [], mode.value)
 
         # Extract entity names from the query
         query_entities = self._extract_query_entities(query)
@@ -300,7 +320,7 @@ class Retriever:
                 expected_dim = self.embedder.dimension
                 for eid, ename, emb_bytes in all_entities:
                     embedding = deserialize_embedding(emb_bytes, expected_dim)
-                    if embedding is not None:
+                    if embedding is not None and np.isfinite(embedding).all():
                         emb_ids.append(eid)
                         emb_names.append(ename)
                         emb_matrix.append(embedding)
@@ -365,10 +385,6 @@ class Retriever:
                             ))
 
         # --- Pass 3: BM25 + cross-encoder + temporal fusion ---
-        all_triples = self.kg.get_triples(
-            active_only=(as_of is None),
-            as_of=as_of,
-        )
         triple_by_id = {triple["id"]: triple for triple in all_triples}
         dense_scores: dict[str, float] = {}
         sources: dict[str, set[str]] = {}
@@ -385,7 +401,10 @@ class Retriever:
             names.setdefault(triple_id, result.entity_name)
 
         triple_ids = list(triple_by_id)
-        triple_docs = [self._triple_text(triple_by_id[tid]) for tid in triple_ids]
+        entity_names_by_id = dict(self.kg.db.execute("SELECT id, name FROM entities"))
+        triple_docs = [
+            self._triple_text(triple_by_id[tid], entity_names_by_id) for tid in triple_ids
+        ]
         source_docs = self._source_documents([triple_by_id[tid] for tid in triple_ids])
         ranked = self._hybrid_rank(
             query=query,
@@ -396,7 +415,7 @@ class Retriever:
             all_docs=source_docs,
         )
 
-        now = as_of or time.time()
+        now = time.time() if as_of is None else as_of
         half_life = 30 * 86400  # 30 days in seconds
         final_results = []
         for triple_id, hybrid_score in ranked:
@@ -406,7 +425,9 @@ class Retriever:
             access_boost = np.log1p(triple.get("access_count", 0)) * 0.1
             temporal = 0.6 + 0.3 * recency + 0.1 * (1 + access_boost)
             score = hybrid_score * temporal * triple["confidence"]
-            source_parts = sources.get(triple_id, set()) | {"bm25", "cross_encoder"}
+            source_parts = sources.get(triple_id, set()) | {"bm25"}
+            if self.enable_reranking:
+                source_parts.add("cross_encoder")
             final_results.append(RetrievalResult(
                 triple=triple,
                 score=float(score),
@@ -428,7 +449,10 @@ class Retriever:
         if pass2_results:
             passes.append("vector")
         if all_triples:
-            passes.extend(["bm25", "cross_encoder", "temporal"])
+            passes.append("bm25")
+            if self.enable_reranking:
+                passes.append("cross_encoder")
+            passes.append("temporal")
 
         return RetrievalResponse(
             results=top_results,
@@ -439,14 +463,14 @@ class Retriever:
             mode=mode.value,
         )
 
-    def _triple_text(self, triple: dict) -> str:
+    def _triple_text(self, triple: dict, entity_names: dict | None = None) -> str:
         """Render a triple as a compact document for lexical/neural ranking."""
-        subject = self.kg.get_entity(triple["subject_id"])
-        subject_name = subject.name if subject else triple["subject_id"]
+        if entity_names is None:
+            entity_names = dict(self.kg.db.execute("SELECT id, name FROM entities"))
+        subject_name = entity_names.get(triple["subject_id"], triple["subject_id"])
         object_text = triple.get("object_value") or ""
         if not object_text and triple.get("object_id"):
-            obj = self.kg.get_entity(triple["object_id"])
-            object_text = obj.name if obj else triple["object_id"]
+            object_text = entity_names.get(triple["object_id"], triple["object_id"])
         predicate = triple["predicate"].replace("_", " ")
         return f"{subject_name} {predicate} {object_text}".strip()
 
@@ -455,12 +479,13 @@ class Retriever:
         source_ids = {triple.get("source_ref") for triple in triples}
         source_ids.discard(None)
         documents: dict[str, str] = {}
-        for source_id in source_ids:
-            row = self.kg.db.execute(
-                "SELECT content FROM conversations WHERE id = ?", (source_id,)
-            ).fetchone()
-            if row:
-                documents[source_id] = row[0]
+        source_ids = sorted(source_ids)
+        for start in range(0, len(source_ids), 500):
+            batch = source_ids[start:start + 500]
+            placeholders = ",".join("?" for _ in batch)
+            documents.update(self.kg.db.execute(
+                f"SELECT id, content FROM conversations WHERE id IN ({placeholders})", batch,
+            ))
         return [documents.get(triple.get("source_ref"), "") for triple in triples]
 
     def _hybrid_rank(
@@ -484,12 +509,17 @@ class Retriever:
         if all_docs is not None and len(all_docs) != len(document_ids):
             raise ValueError("all_docs must align with document_ids")
 
-        from rank_bm25 import BM25Okapi
+        from rank_bm25 import BM25Okapi, BM25Plus
 
         tokenized_docs = [_tokenize(document) for document in primary_docs]
-        bm25 = BM25Okapi(tokenized_docs)
         query_tokens = _tokenize(query)
-        bm25_raw = np.asarray(bm25.get_scores(query_tokens), dtype=float)
+        if any(tokenized_docs):
+            # Positive IDF keeps common terms searchable in tiny local graphs.
+            bm25 = (BM25Okapi(tokenized_docs) if self.enable_reranking
+                    else BM25Plus(tokenized_docs, delta=0))
+            bm25_raw = np.asarray(bm25.get_scores(query_tokens), dtype=float)
+        else:
+            bm25_raw = np.zeros(len(document_ids))
         bm25_max = float(bm25_raw.max()) if bm25_raw.size else 0.0
         bm25_norm = bm25_raw / bm25_max if bm25_max > 0 else np.zeros_like(bm25_raw)
 
@@ -502,6 +532,11 @@ class Retriever:
             )
             for index, document_id in enumerate(document_ids)
         }
+        if not self.enable_reranking:
+            return sorted(
+                ((key, value) for key, value in stage1.items() if value > 0),
+                key=lambda item: item[1], reverse=True,
+            )
 
         rerank_k, dual_pass = _RERANK_CONFIG[mode]
         candidates = sorted(stage1.items(), key=lambda item: item[1], reverse=True)[
@@ -593,6 +628,8 @@ class Retriever:
             return []
         if len(session_docs) != len(session_ids):
             raise ValueError("session_docs and session_ids must have equal length")
+        if top_k <= 0:
+            return []
         if self.embedder is None or self._emb_cache is None:
             raise ValueError("retrieve_sessions requires an embedder")
 
@@ -665,11 +702,15 @@ class Retriever:
             query_embeddings @ document_embeddings.T, dtype=float
         )
 
-        bm25 = BM25Okapi([_tokenize(document) for document in chunk_docs])
-        bm25_scores = np.stack([
-            np.asarray(bm25.get_scores(_tokenize(facet)), dtype=float)
-            for facet in query_facets
-        ])
+        tokens = [_tokenize(document) for document in chunk_docs]
+        if any(tokens):
+            bm25 = BM25Okapi(tokens)
+            bm25_scores = np.stack([
+                np.asarray(bm25.get_scores(_tokenize(facet)), dtype=float)
+                for facet in query_facets
+            ])
+        else:
+            bm25_scores = np.zeros_like(dense_scores)
 
         dense_orders = np.argsort(-dense_scores, axis=1, kind="stable")
         bm25_orders = np.argsort(-bm25_scores, axis=1, kind="stable")
@@ -791,7 +832,10 @@ class Retriever:
             if response.startswith("```"):
                 response = re.sub(r"^```\w*\n?", "", response)
                 response = re.sub(r"\n?```$", "", response)
-            return json.loads(response)
+            entities = json.loads(response)
+            if not isinstance(entities, list) or not all(isinstance(name, str) for name in entities):
+                raise ValueError("entity extraction must return a list of strings")
+            return [name.strip() for name in entities if name.strip()]
         except Exception:
             return self._extract_entities_heuristic(query)
 

@@ -85,6 +85,10 @@ def rank_blend(cand_ids, cross, ids, stage1):
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, default=Path(__file__).parent / "results_controls_ablation.json")
+    args = parser.parse_args()
     data_path = Path(__file__).parent / "data" / "longmemeval_s_cleaned.json"
     source = json.loads(data_path.read_text())
     data = [q for q in source if is_official_retrieval_instance(q)]
@@ -188,7 +192,8 @@ def main():
         print(f"  {t:30s} R-all@5={tm['recall_all@5']:.3f} "
               f"R-all@10={tm['recall_all@10']:.3f} NDCG@10={tm['ndcg_any@10']:.3f}")
 
-    out_path = Path(__file__).parent / "results_controls_ablation.json"
+    out_path = args.output
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(out, indent=2))
     print(f"saved {out_path} ({el:.0f}s)")
 

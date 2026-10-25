@@ -1,0 +1,49 @@
+Loaded 10 conversations, 1986 QA pairs
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 103/103 [00:00<00:00, 13204.96it/s]
+[1mBertModel LOAD REPORT[0m from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  |
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  |
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+
+Loading weights:   0%|          | 0/201 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 201/201 [00:00<00:00, 18484.81it/s]
+[1mBertForSequenceClassification LOAD REPORT[0m from: cross-encoder/ms-marco-MiniLM-L-12-v2
+Key                          | Status     |  |
+-----------------------------+------------+--+-
+bert.embeddings.position_ids | UNEXPECTED |  |
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+  250 scored R-all@5=0.532
+  500 scored R-all@5=0.568
+  750 scored R-all@5=0.565
+  1000 scored R-all@5=0.564
+  1250 scored R-all@5=0.541
+  1500 scored R-all@5=0.538
+  1750 scored R-all@5=0.532
+
+======================================================================
+LoCoMo retrieval diagnostic — memoria-balanced-legacy
+======================================================================
+Core rows:       1536 (categories 1-4)
+All scored rows: 1982 (4 without evidence skipped)
+Core Recall-All@5:  50.9%
+Core Recall-All@10: 68.4%
+Core NDCG-Any@10:   0.5459
+All Recall-All@5:   52.5%
+All Recall-All@10:  70.6%
+Time:   155.6s (12.7 q/s)
+
+By category:
+  single-hop                 R-all@5=0.216  R-all@10=0.365  NDCG@10=0.472  (n=282)
+  temporal                   R-all@5=0.673  R-all@10=0.804  NDCG@10=0.656  (n=321)
+  multi-hop                  R-all@5=0.272  R-all@10=0.435  NDCG@10=0.368  (n=92)
+  open-domain                R-all@5=0.571  R-all@10=0.772  NDCG@10=0.548  (n=841)
+  adversarial                R-all@5=0.578  R-all@10=0.783  NDCG@10=0.571  (n=446)
+
+Saved to /Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/locomo_memoria_legacy.json

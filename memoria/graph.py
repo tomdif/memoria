@@ -17,6 +17,8 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from .embeddings import deserialize_embedding, serialize_embedding
+from .database import transactional
+from . import validation
 
 
 # These predicates describe additive relationships. Other fact predicates are
@@ -78,9 +80,13 @@ class KnowledgeGraph:
 
     # --- Entity operations ---
 
+    @transactional
     def add_entity(self, name: str, entity_type: str | None = None,
                    confidence: float = 1.0, embedding: np.ndarray | None = None) -> str:
         """Add or return an entity, deduplicating names case-insensitively."""
+        name = validation.text(name, "name").strip()
+        validation.text(entity_type, "entity_type", optional=True)
+        validation.number(confidence, "confidence", minimum=0, maximum=1)
         # Exact match on (name, type) first
         existing = self.db.execute(
             "SELECT id FROM entities WHERE LOWER(name) = LOWER(?) AND entity_type IS ?",
@@ -92,7 +98,6 @@ class KnowledgeGraph:
                     "UPDATE entities SET embedding = COALESCE(embedding, ?) WHERE id = ?",
                     (serialize_embedding(embedding), existing[0]),
                 )
-                self.db.commit()
             return existing[0]
         # Fall back to name-only match to prevent duplicates
         existing = self.db.execute(
@@ -108,7 +113,6 @@ class KnowledgeGraph:
                    WHERE id = ?""",
                 (entity_type, serialize_embedding(embedding), existing[0]),
             )
-            self.db.commit()
             return existing[0]
 
         eid = str(uuid.uuid4())
@@ -118,7 +122,6 @@ class KnowledgeGraph:
                VALUES (?, ?, ?, ?, ?, ?)""",
             (eid, name, entity_type, time.time(), confidence, emb_bytes),
         )
-        self.db.commit()
         return eid
 
     def get_entity(self, entity_id: str) -> Entity | None:
@@ -137,15 +140,18 @@ class KnowledgeGraph:
             embedding=emb,
         )
 
-    def find_entities(self, name: str) -> list[Entity]:
+    def find_entities(self, name: str, *, exact: bool = False) -> list[Entity]:
         """Find entities by name (case-insensitive prefix match)."""
+        validation.text(name, "name")
+        escaped = name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        condition = "LOWER(name) = LOWER(?)" if exact else "LOWER(name) LIKE LOWER(?) ESCAPE '\\'"
         rows = self.db.execute(
-            """SELECT id, name, entity_type, created_at, confidence,
+            f"""SELECT id, name, entity_type, created_at, confidence,
                       access_count, last_accessed
-               FROM entities WHERE LOWER(name) LIKE LOWER(?) || '%'
-               ORDER BY confidence DESC, access_count DESC
+               FROM entities WHERE {condition}
+               ORDER BY (LOWER(name) = LOWER(?)) DESC, confidence DESC, access_count DESC, id
                LIMIT 20""",
-            (name,),
+            (name if exact else escaped + "%", name),
         ).fetchall()
         return [
             Entity(id=r[0], name=r[1], entity_type=r[2], created_at=r[3],
@@ -158,6 +164,7 @@ class KnowledgeGraph:
 
     # --- Triple operations ---
 
+    @transactional
     def add_triple(
         self,
         subject_id: str,
@@ -175,6 +182,18 @@ class KnowledgeGraph:
         Returns (triple_id, contradictions) where contradictions is a list
         of existing triples that conflict with this one.
         """
+        validation.text(predicate, "predicate")
+        validation.number(confidence, "confidence", minimum=0, maximum=1)
+        if valid_from is not None:
+            validation.number(valid_from, "valid_from")
+        if replace_existing is not None:
+            validation.boolean(replace_existing, "replace_existing")
+        if (object_id is None) == (object_value is None):
+            raise ValueError("provide exactly one of object_id or object_value")
+        if object_id is not None:
+            validation.text(object_id, "object_id")
+        elif not isinstance(object_value, str):
+            raise ValueError("object_value must be a string")
         contradictions = []
         if replace_existing is None:
             replace_existing = (
@@ -189,6 +208,9 @@ class KnowledgeGraph:
 
         tid = str(uuid.uuid4())
         now = time.time()
+        effective_from = now if valid_from is None else valid_from
+        if any(old["valid_from"] is not None and old["valid_from"] > effective_from for old in contradictions):
+            raise ValueError("replacement cannot predate the current fact")
         self.db.execute(
             """INSERT INTO triples
                (id, subject_id, predicate, object_id, object_value,
@@ -196,17 +218,16 @@ class KnowledgeGraph:
                 source_ref, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)""",
             (tid, subject_id, predicate, object_id, object_value,
-             relation_type, confidence, valid_from or now, source_ref, now),
+             relation_type, confidence, effective_from, source_ref, now),
         )
 
         # If contradictions found, close old facts (valid_until marks them as superseded)
         for old in contradictions:
             self.db.execute(
                 "UPDATE triples SET valid_until = ? WHERE id = ?",
-                (now, old["id"]),
+                (effective_from, old["id"]),
             )
 
-        self.db.commit()
         return (tid, contradictions)
 
     def _detect_contradictions(
@@ -229,8 +250,7 @@ class KnowledgeGraph:
             old_obj = r[3]
             old_val = r[4]
             # Different object entity or different literal value
-            if (object_id and old_obj and object_id != old_obj) or \
-               (object_value and old_val and object_value != old_val):
+            if (object_id, object_value) != (old_obj, old_val):
                 contradictions.append({
                     "id": r[0], "subject_id": r[1], "predicate": r[2],
                     "object_id": r[3], "object_value": r[4],
@@ -331,8 +351,12 @@ class KnowledgeGraph:
 
         return result
 
+    @transactional
     def touch(self, triple_ids: list[str]):
         """Update access count and last_accessed for retrieved triples."""
+        triple_ids = list(dict.fromkeys(triple_ids))
+        if not triple_ids:
+            return
         now = time.time()
         for tid in triple_ids:
             self.db.execute(
@@ -349,7 +373,6 @@ class KnowledgeGraph:
                 )""",
             [now] + triple_ids + triple_ids,
         )
-        self.db.commit()
 
     def all_triples_for_spectral(self) -> tuple[list[dict], dict[str, int]]:
         """Get all active triples and entity index for spectral analysis."""
@@ -363,6 +386,7 @@ class KnowledgeGraph:
         edge_triples = [t for t in triples if t["object_id"] is not None]
         return edge_triples, entity_index
 
+    @transactional
     def delete_entity(self, entity_id: str) -> int:
         """Delete an entity and all its triples (both as subject and object). Returns count of deleted triples."""
         # Delete triples where this entity is subject or object
@@ -374,22 +398,24 @@ class KnowledgeGraph:
         ).rowcount
         # Delete the entity itself
         self.db.execute("DELETE FROM entities WHERE id = ?", (entity_id,))
-        self.db.commit()
         return c1 + c2
 
+    @transactional
     def delete_triple(self, triple_id: str) -> bool:
         """Hard-delete a specific triple. Returns True if found."""
         result = self.db.execute(
             "DELETE FROM triples WHERE id = ?", (triple_id,)
         )
-        self.db.commit()
         return result.rowcount > 0
 
+    @transactional
     def merge_entities(self, keep_id: str, merge_id: str) -> int:
         """Merge merge_id into keep_id: reassign all triples, then delete merge_id.
         Returns number of triples reassigned."""
         if keep_id == merge_id:
             return 0
+        if self.get_entity(keep_id) is None or self.get_entity(merge_id) is None:
+            raise ValueError("both entities must exist before merging")
         reassigned = 0
         # Reassign triples where merge_id is subject
         r1 = self.db.execute(
@@ -405,7 +431,6 @@ class KnowledgeGraph:
         reassigned += r2.rowcount
         # Delete the merged entity
         self.db.execute("DELETE FROM entities WHERE id = ?", (merge_id,))
-        self.db.commit()
         return reassigned
 
     def list_entities(self, limit: int = 100) -> list[dict]:
@@ -479,12 +504,12 @@ class KnowledgeGraph:
             ])
         return groups
 
+    @transactional
     def purge_expired(self) -> int:
         """Hard-delete all soft-deleted triples (valid_until IS NOT NULL)."""
         result = self.db.execute(
             "DELETE FROM triples WHERE valid_until IS NOT NULL"
         )
-        self.db.commit()
         return result.rowcount
 
     def triple_count(self) -> int:

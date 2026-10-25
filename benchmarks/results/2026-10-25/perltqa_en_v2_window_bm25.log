@@ -1,0 +1,52 @@
+{
+  "characters": 32,
+  "questions": 8593,
+  "valid_gold": 8491,
+  "missing_gold": 102,
+  "by_type": {
+    "profile": {
+      "valid": 357,
+      "missing": 0
+    },
+    "social_relationship": {
+      "valid": 802,
+      "missing": 95
+    },
+    "events": {
+      "valid": 4494,
+      "missing": 7
+    },
+    "dialogues": {
+      "valid": 2838,
+      "missing": 0
+    }
+  },
+  "resolved_character_aliases": 1
+}
+  500/8593 strict-R@5=0.798 (126.7 q/s)
+  1000/8593 strict-R@5=0.816 (119.7 q/s)
+  1500/8593 strict-R@5=0.826 (130.2 q/s)
+  2000/8593 strict-R@5=0.818 (132.4 q/s)
+  2500/8593 strict-R@5=0.820 (132.4 q/s)
+  3000/8593 strict-R@5=0.814 (132.5 q/s)
+  3500/8593 strict-R@5=0.821 (133.7 q/s)
+  4000/8593 strict-R@5=0.820 (135.9 q/s)
+  4500/8593 strict-R@5=0.820 (136.2 q/s)
+  5000/8593 strict-R@5=0.813 (136.6 q/s)
+  5500/8593 strict-R@5=0.816 (136.4 q/s)
+  6000/8593 strict-R@5=0.815 (137.2 q/s)
+  6500/8593 strict-R@5=0.808 (138.2 q/s)
+  7000/8593 strict-R@5=0.810 (132.5 q/s)
+  7500/8593 strict-R@5=0.814 (127.7 q/s)
+  8000/8593 strict-R@5=0.812 (124.4 q/s)
+  8500/8593 strict-R@5=0.808 (124.5 q/s)
+
+PerLTQA English v2 memory retrieval
+Retriever: window-bm25
+Rows: 8593 (102 missing gold IDs)
+R@1: 48.8% strict / 49.4% valid-gold
+R@2: 67.7% strict / 68.5% valid-gold
+R@3: 73.6% strict / 74.5% valid-gold
+R@5: 80.5% strict / 81.5% valid-gold
+Time: 68.9s (124.6 q/s)
+Saved to /Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/perltqa_en_v2_window_bm25.json

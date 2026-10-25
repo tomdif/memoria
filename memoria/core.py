@@ -20,7 +20,9 @@ from pathlib import Path
 from .schema import SCHEMA_SQL
 from .storage import ConversationStore
 from .graph import KnowledgeGraph
-from .extractor import extract_from_text, ingest_extraction
+from .extractor import extract_from_text, ingest_extraction, prepare_embeddings, validate_extraction
+from .database import transaction, transactional
+from . import validation
 from .retriever import Retriever, RetrievalMode, RetrievalResponse, format_results
 from .consolidator import Consolidator
 from .compressor import compress, budget_report, CompressedMemory
@@ -48,7 +50,7 @@ class Memoria:
         scope: MemoryScope | str | None = None,
         scope_cwd: str | Path | None = None,
         embedder: Embedder | None = None,
-        enable_embeddings: bool = True,
+        enable_embeddings: bool | None = None,
     ):
         """Initialize memoria.
 
@@ -61,24 +63,36 @@ class Memoria:
                    a resolved :class:`MemoryScope`.
             scope_cwd: Working directory used when resolving ``scope="auto"``.
             embedder: Optional shared embedder for multi-scope callers.
-            enable_embeddings: Disable embedding work on latency-tolerant
-                               ingestion paths such as asynchronous hooks.
+            enable_embeddings: False disables local embedding and reranking
+                               models. None honors MEMORIA_NO_MODELS.
         """
         self.base_db_path = Path(db_path).expanduser()
         self.scope = resolve_scope(scope, cwd=scope_cwd)
         self.db_path = scoped_db_path(self.base_db_path, self.scope)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        try:
+            fd = os.open(self.db_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        except FileExistsError:
+            pass
+        else:
+            os.close(fd)
 
-        self.db = sqlite3.connect(str(self.db_path))
-        self.db.execute("PRAGMA journal_mode=WAL")
-        self.db.execute("PRAGMA foreign_keys=ON")
-        self.db.executescript(SCHEMA_SQL)
+        self.db = sqlite3.connect(str(self.db_path), timeout=30.0)
+        try:
+            self.db.execute("PRAGMA journal_mode=WAL")
+            self.db.execute("PRAGMA foreign_keys=ON")
+            self.db.executescript(SCHEMA_SQL)
+        except BaseException:
+            self.db.close()
+            raise
+        if enable_embeddings is None:
+            enable_embeddings = os.environ.get("MEMORIA_NO_MODELS", "").lower() not in {"1", "true", "yes"}
 
         self.store = ConversationStore(self.db)
         self.kg = KnowledgeGraph(self.db)
         self.embedder = (embedder or Embedder(model_name)) if enable_embeddings else None
         self.llm_call = llm_call
-        self.retriever = Retriever(self.kg, self.embedder, llm_call)
+        self.retriever = Retriever(self.kg, self.embedder, llm_call, enable_reranking=enable_embeddings)
         self.consolidator = Consolidator(self.kg, self.embedder, llm_call)
 
     def remember(
@@ -87,65 +101,70 @@ class Memoria:
         role: str = "user",
         session_id: str | None = None,
         metadata: dict | None = None,
-        ensure_retrievable: bool = False,
+        ensure_retrievable: bool = True,
         fallback_confidence: float = 0.7,
     ) -> dict:
         """Ingest a conversation turn: store raw, extract knowledge, update graph.
 
-        This is the primary write path. Returns extraction stats.
+        This is the primary write path. Returns extraction stats. Raw provenance,
+        facts, and supersession commit together. Unstructured input gets a
+        searchable note unless ensure_retrievable is explicitly False.
         """
-        hard_limit = hard_quota_bytes()
-        if hard_limit is not None:
-            usage = database_usage(self.db, self.db_path)
-            if usage["physical_bytes"] >= hard_limit:
-                raise RuntimeError(
-                    "MEMORIA_HARD_MAX_DB_MB reached for this scope; "
-                    "run `memoria storage status` and retention maintenance."
-                )
-
-        # L1: Store raw
+        validation.text(text, "text")
+        validation.text(role, "role")
+        validation.text(session_id, "session_id", optional=True)
+        validation.boolean(ensure_retrievable, "ensure_retrievable")
+        validation.number(fallback_confidence, "fallback_confidence", minimum=0, maximum=1)
+        if metadata is not None and not isinstance(metadata, dict):
+            raise ValueError("metadata must be an object")
         stored_metadata = dict(metadata or {})
         stored_metadata.setdefault("scope", self.scope.scope_id)
         stored_metadata.setdefault("scope_label", self.scope.label)
-        conv_id = self.store.append(
-            text,
-            role=role,
-            session_id=session_id,
-            metadata=stored_metadata,
-        )
+        try:
+            json.dumps(stored_metadata, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("metadata must contain JSON-serializable values") from exc
 
-        # Extract entities and relations
-        if self.llm_call:
-            extraction = extract_from_text(text, self.llm_call)
-        else:
-            extraction = self._heuristic_extract(text)
-
-        # L2: Write to knowledge graph
-        stats = ingest_extraction(
-            self.kg, extraction,
-            source_ref=conv_id,
-            embedder=self.embedder,
+        # Provider and model work happens before taking SQLite's writer lock.
+        extraction = validate_extraction(
+            extract_from_text(text, self.llm_call)
+            if self.llm_call else self._heuristic_extract(text)
         )
-        if ensure_retrievable and stats["triples_added"] == 0:
-            note_embedding = (
-                self.embedder.embed_single(text[:2000]) if self.embedder else None
+        embeddings = prepare_embeddings(extraction, self.embedder)
+        needs_note = ensure_retrievable and not any(
+            extraction[key] for key in ("facts", "causal", "decisions")
+        )
+        note_embedding = (
+            self.embedder.embed_single(text[:2000])
+            if needs_note and self.embedder else None
+        )
+        with transaction(self.db):
+            hard_limit = hard_quota_bytes()
+            if hard_limit is not None:
+                usage = database_usage(self.db, self.db_path)
+                if usage["physical_bytes"] >= hard_limit:
+                    raise RuntimeError(
+                        "MEMORIA_HARD_MAX_DB_MB reached for this scope; "
+                        "run `memoria storage status` and retention maintenance."
+                    )
+            conv_id = self.store.append(
+                text, role=role, session_id=session_id, metadata=stored_metadata,
             )
-            note_entity = self.kg.add_entity(
-                f"Memory {conv_id[:8]}",
-                entity_type="memory",
-                embedding=note_embedding,
+            stats = ingest_extraction(
+                self.kg, extraction, source_ref=conv_id, embeddings=embeddings,
             )
-            self.kg.add_triple(
-                note_entity,
-                "records",
-                object_value=text[:2000],
-                relation_type="fact",
-                confidence=max(0.0, min(float(fallback_confidence), 1.0)),
-                source_ref=conv_id,
-                replace_existing=False,
-            )
-            stats["triples_added"] = 1
-            stats["fallback_note"] = True
+            if needs_note:
+                note_entity = self.kg.add_entity(
+                    f"Memory {conv_id}", entity_type="memory", embedding=note_embedding,
+                )
+                self.kg.add_triple(
+                    note_entity, "records", object_value=text,
+                    relation_type="fact", confidence=fallback_confidence,
+                    source_ref=conv_id, replace_existing=False,
+                )
+                stats["entities_added"] += 1
+                stats["triples_added"] = 1
+                stats["fallback_note"] = True
         stats["conversation_id"] = conv_id
         stats["scope"] = self.scope.scope_id
         if os.environ.get("MEMORIA_MAX_DB_MB"):
@@ -166,17 +185,46 @@ class Memoria:
             mode: ``speed``, ``balanced``, or ``quality``. The modes select
                   reranking depth; measured latency depends on corpus and hardware.
         """
+        validation.text(query, "query")
+        validation.integer(top_k, "top_k", maximum=1000)
+        if as_of is not None:
+            validation.number(as_of, "as_of")
         retrieval_mode = RetrievalMode(mode)
         return self.retriever.retrieve(query, top_k=top_k, as_of=as_of, mode=retrieval_mode)
 
-    def recall_formatted(self, query: str, top_k: int = 20, mode: str = "balanced") -> str:
+    def recall_formatted(self, query: str, top_k: int = 20, mode: str = "balanced",
+                         as_of: float | None = None) -> str:
         """Retrieve and format results as readable text."""
-        response = self.recall(query, top_k=top_k, mode=mode)
+        response = self.recall(query, top_k=top_k, mode=mode, as_of=as_of)
         return format_results(response, self.kg)
 
     def consolidate(self, **kwargs) -> dict:
         """Run memory consolidation. Call periodically or before sessions."""
         return self.consolidator.consolidate(**kwargs)
+
+    def recall_json(self, query: str, top_k: int = 20, mode: str = "balanced",
+                    as_of: float | None = None) -> dict:
+        """Return ranked facts with stable IDs, temporal validity, and provenance."""
+        response = self.recall(query, top_k=top_k, mode=mode, as_of=as_of)
+        results = []
+        for result in response.results:
+            fact = dict(result.triple)
+            subject = self.kg.get_entity(fact["subject_id"])
+            obj = self.kg.get_entity(fact["object_id"]) if fact.get("object_id") else None
+            fact["subject_name"] = subject.name if subject else None
+            fact["object_name"] = obj.name if obj else None
+            source = self.store.get(fact["source_ref"]) if fact.get("source_ref") else None
+            results.append({
+                "fact": fact, "score": result.score, "source": result.source,
+                "depth": result.depth, "provenance": source,
+            })
+        return {
+            "results": results, "count": len(results), "mode": response.mode,
+            "scope": self.scope.scope_id, "query_entities": response.query_entities,
+            "passes_used": response.passes_used,
+            "screening_depth": response.screening_depth,
+            "local_spectral_gap": response.local_spectral_gap,
+        }
 
     def compress(self, budget_tokens: int = 200) -> CompressedMemory:
         """Compress full memory state into a token budget.
@@ -190,6 +238,7 @@ class Memoria:
                 L2 (≤2000) cluster summaries + facts
                 L3 (>2000) full detail
         """
+        validation.integer(budget_tokens, "budget_tokens", minimum=1)
         return compress(self.kg, budget_tokens=budget_tokens, llm_call=self.llm_call)
 
     def budget_report(self) -> dict:
@@ -242,6 +291,17 @@ class Memoria:
             )
         return result
 
+    def backup(self, destination: str | Path) -> dict:
+        """Save a verified, complete snapshot of this scope to a new file."""
+        from .maintenance import backup_database
+        return backup_database(self.db, destination)
+
+    def check_storage(self) -> dict:
+        """Inspect SQLite, foreign-key, and full-text index integrity."""
+        from .maintenance import check_database
+        return check_database(self.db)
+
+    @transactional
     def retain_raw_history(
         self,
         *,
@@ -252,8 +312,9 @@ class Memoria:
         apply: bool = False,
     ) -> dict:
         """Preview or archive old raw provenance while preserving graph facts."""
-        if older_than_days is not None and older_than_days < 0:
-            raise ValueError("older_than_days must be non-negative")
+        validation.boolean(apply, "apply")
+        if older_than_days is not None:
+            validation.number(older_than_days, "older_than_days", minimum=0)
         cutoff = (
             time.time() - older_than_days * 86400
             if older_than_days is not None
@@ -290,6 +351,10 @@ class Memoria:
         apply_stale_cleanup: bool = False,
     ) -> dict:
         """Checkpoint storage, optionally vacuum, and inspect stale hook state."""
+        validation.boolean(vacuum, "vacuum")
+        validation.boolean(apply_stale_cleanup, "apply_stale_cleanup")
+        if stale_pending_days is not None:
+            validation.number(stale_pending_days, "stale_pending_days", minimum=0)
         result = {"database": compact_database(self.db, self.db_path, vacuum=vacuum)}
         if stale_pending_days is not None:
             state_dir = Path(
@@ -310,6 +375,7 @@ class Memoria:
         apply: bool = False,
     ) -> dict:
         """Validate and optionally restore a raw-provenance JSONL archive."""
+        validation.boolean(apply, "apply")
         rows = self.store.read_archive(archive_path, limit=limit)
         existing = 0
         for row in rows:
@@ -395,6 +461,7 @@ class Memoria:
 
         return {"entities": unique_entities, "facts": facts, "causal": [], "decisions": []}
 
+    @transactional
     def cleanup(
         self,
         action: str,

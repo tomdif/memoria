@@ -3,12 +3,77 @@
 from __future__ import annotations
 
 import os
+import math
 import shutil
 import sqlite3
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+import tempfile
+
+
+def check_database(db: sqlite3.Connection) -> dict[str, Any]:
+    """Check SQLite pages, foreign keys, and the external-content FTS index."""
+    integrity = [row[0] for row in db.execute("PRAGMA integrity_check")]
+    foreign_keys = [list(row) for row in db.execute("PRAGMA foreign_key_check")]
+    fts_error = None
+    # FTS5's integrity command is read-only in effect but is an INSERT in SQL.
+    from .database import transaction
+    try:
+        with transaction(db):
+            db.execute("INSERT INTO conversations_fts(conversations_fts, rank) VALUES('integrity-check', 1)")
+    except sqlite3.DatabaseError as exc:
+        fts_error = str(exc)
+    return {
+        "ok": integrity == ["ok"] and not foreign_keys and fts_error is None,
+        "integrity": integrity, "foreign_key_violations": foreign_keys,
+        "fts_error": fts_error,
+    }
+
+
+def backup_database(db: sqlite3.Connection, destination: str | Path) -> dict[str, Any]:
+    """Create a verified, consistent SQLite snapshot, including committed WAL data.
+
+    Publish atomically without overwriting existing paths. This captures the
+    current scope's graph and raw provenance, unlike raw JSONL retention.
+    """
+    if db.in_transaction:
+        raise ValueError("finish the current transaction before taking a backup")
+    target = Path(destination).expanduser()
+    if target.exists() or target.is_symlink():
+        raise ValueError(f"backup destination already exists: {target}")
+    target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    fd, temporary = tempfile.mkstemp(prefix=".memoria-backup-", suffix=".db", dir=target.parent)
+    os.close(fd)
+    try:
+        with sqlite3.connect(temporary) as snapshot:
+            db.backup(snapshot)
+            snapshot.execute("PRAGMA journal_mode=DELETE")
+            checks = check_database(snapshot)
+            if not checks["ok"]:
+                raise ValueError(f"backup integrity check failed: {checks}")
+        snapshot.close()
+        with open(temporary, "rb") as stream:
+            os.fsync(stream.fileno())
+        os.link(temporary, target)
+        fsync_directory(target.parent)
+    finally:
+        # sqlite3's context manager manages transactions, not connection lifetime.
+        if "snapshot" in locals():
+            snapshot.close()
+        Path(temporary).unlink(missing_ok=True)
+    return {"backup_path": str(target), "bytes": target.stat().st_size, "verified": True}
+
+
+def fsync_directory(path: Path):
+    """Persist a newly created archive/backup directory entry where supported."""
+    if os.name == "posix":
+        fd = os.open(path, os.O_RDONLY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
 
 
 def _file_size(path: Path) -> int:
@@ -30,7 +95,7 @@ def database_usage(db: sqlite3.Connection, db_path: str | Path) -> dict[str, Any
     wal_bytes = _file_size(wal_path)
     shm_bytes = _file_size(shm_path)
     content_bytes = int(db.execute(
-        "SELECT COALESCE(SUM(LENGTH(content)), 0) FROM conversations"
+        "SELECT COALESCE(SUM(LENGTH(CAST(content AS BLOB))), 0) FROM conversations"
     ).fetchone()[0])
     embedding_bytes = int(db.execute(
         "SELECT COALESCE(SUM(LENGTH(embedding)), 0) FROM entities"
@@ -79,7 +144,7 @@ def _positive_float(value: str | None) -> float | None:
         parsed = float(value)
     except ValueError:
         return None
-    return parsed if parsed > 0 else None
+    return parsed if math.isfinite(parsed) and parsed > 0 else None
 
 
 def hard_quota_bytes() -> int | None:

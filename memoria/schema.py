@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS entities (
 );
 
 CREATE INDEX IF NOT EXISTS idx_entities_name ON entities(name);
+CREATE INDEX IF NOT EXISTS idx_entities_name_lower ON entities(LOWER(name));
 CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(entity_type);
 CREATE INDEX IF NOT EXISTS idx_entities_confidence ON entities(confidence);
 
@@ -41,6 +42,9 @@ CREATE INDEX IF NOT EXISTS idx_triples_predicate ON triples(predicate);
 CREATE INDEX IF NOT EXISTS idx_triples_relation ON triples(relation_type);
 CREATE INDEX IF NOT EXISTS idx_triples_confidence ON triples(confidence);
 CREATE INDEX IF NOT EXISTS idx_triples_valid ON triples(valid_from, valid_until);
+CREATE INDEX IF NOT EXISTS idx_triples_source ON triples(source_ref);
+CREATE INDEX IF NOT EXISTS idx_triples_current ON triples(subject_id, predicate)
+    WHERE valid_until IS NULL;
 
 -- Raw conversation logs (Layer 1 — ground truth while retained locally)
 CREATE TABLE IF NOT EXISTS conversations (

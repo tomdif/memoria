@@ -1,13 +1,51 @@
 # Storage operations
 
-Memoria 0.2 adds observable, bounded storage operations without silently
-deleting durable memory. Limits apply per SQLite scope: the global database and
+Memoria provides bounded storage operations, atomic writes, and verified
+backups. Limits and backups apply per SQLite scope: the global database and
 each Git repository have separate files.
+
+This guide describes version 0.3. See [upgrading](UPGRADING.md) before updating
+an older installation and [the API reference](API.md) for interface details.
+
+## Complete backups and integrity checks
+
+```bash
+memoria --scope auto storage check
+memoria --scope auto storage backup ./project-memory-snapshot.db
+```
+
+Add `--json` to either command for machine-readable output. Python callers use
+`memory.check_storage()` and `memory.backup(destination)`. These operations are
+available through CLI/Python; the HTTP and MCP storage surfaces expose status,
+retention, archive restore, and compaction, not complete backups or checks.
+
+`storage check` checks SQLite pages, foreign keys, and the full-text index;
+it exits nonzero when an inconsistency is found. It does not automatically
+repair or delete memory.
+
+`storage backup` uses SQLite's online backup API, including committed WAL
+contents, to capture raw records, graph facts, embeddings, and schema together.
+It verifies the snapshot, syncs it, and publishes it to a new destination.
+Existing files and symbolic links are never overwritten. A backup covers the
+selected scope only; external JSONL archives and other scopes remain separate.
+
+To inspect a snapshot or recover into a separate database:
+
+```bash
+memoria --db ./project-memory-snapshot.db --scope global storage check
+memoria --db ./project-memory-snapshot.db --scope global --no-models recall "database" --json
+```
+
+Use `--scope global` when opening the backup file directly; `--scope auto`
+would derive a different project database beside it. For replacement of a
+production database, stop all writers and preserve the existing database and
+its WAL/SHM files before switching paths. A copied `.db` file alone may miss
+committed WAL data; use the backup command for live databases.
 
 ## What consumes space
 
-- The warm hook daemon keeps neural models in RAM. Its footprint is mostly
-  fixed and does not grow with conversation count.
+- The warm hook daemon keeps neural models in RAM. Model memory is roughly
+  fixed; retrieval buffers also scale with the eligible graph and corpus.
 - Downloaded embedding and reranking models are cached outside the Memoria
   database. The current defaults occupy about 215 MB, though dependency and
   model releases can change this.
@@ -83,6 +121,8 @@ Applied retention completes the archive write and filesystem sync before the
 database transaction deletes rows. Full-text deletion triggers keep search in
 sync. Graph triples keep their source IDs and remain retrievable even while the
 raw record is offline.
+Structured recall reports `provenance: null` for an archived raw record;
+restoring the record reconnects provenance without recreating graph facts.
 
 ## Restore
 
@@ -93,7 +133,9 @@ memoria --scope auto storage restore /path/to/archive.jsonl
 memoria --scope auto storage restore /path/to/archive.jsonl --apply
 ```
 
-Restore rejects symbolic links, malformed records, and checksum mismatches.
+Restore rejects symbolic links, malformed records, missing format/checksum
+fields, and checksum mismatches. Checksums detect accidental changes; they
+do not authenticate an archive supplied by another party.
 Existing conversation IDs are left unchanged and reported as skipped. Restored
 IDs reconnect graph provenance automatically.
 
@@ -124,17 +166,20 @@ growth:
 memoria --scope auto consolidate
 memoria --scope auto cleanup find-duplicates
 memoria --scope auto cleanup find-orphans
-memoria --scope auto cleanup purge-expired
 ```
 
-`purge-expired`, entity deletion, and triple deletion permanently change graph
-history. Review their output and backups before applying them. Consolidation
-preserves superseded temporal history unless it is explicitly purged.
+`consolidate` applies its changes immediately. The two `find-*` commands above
+only inspect the graph. Explicit deletion, merging, and purge commands also
+apply immediately; they do not have retention's `--apply` preview convention.
+For example, `memoria --scope auto cleanup purge-expired` permanently deletes
+superseded facts. Consolidation preserves that history unless it is explicitly
+purged. Keep a complete backup before deleting history that you may need later.
 
 ## Temporary hook state
 
 Claude Code and Codex hooks briefly store pending prompts until the matching
 `Stop` event. Abandoned JSON files are removed automatically after seven days.
+New pending-prompt files are created with mode `0600` on POSIX systems.
 Set `MEMORIA_PENDING_TTL_DAYS` to change the lifetime or a negative value to
 disable automatic cleanup.
 

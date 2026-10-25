@@ -1,0 +1,48 @@
+[
+  {
+    "name": "longmemeval_s_flat_bm25",
+    "command": [
+      "/Users/thomasdifiore/memoria/benchmarks/longmemeval_final.py",
+      "--data",
+      "benchmarks/data/longmemeval_s_cleaned.json",
+      "--retriever",
+      "flat-bm25",
+      "--scope",
+      "official",
+      "--output",
+      "/Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/longmemeval_s_flat_bm25.json"
+    ],
+    "exit_code": 0,
+    "elapsed_sec": 4.393708229064941
+  },
+  {
+    "name": "locomo_flat_bm25",
+    "command": [
+      "/Users/thomasdifiore/memoria/benchmarks/locomo_bench.py",
+      "--data",
+      "benchmarks/data/locomo10.json",
+      "--retriever",
+      "flat-bm25",
+      "--output",
+      "/Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/locomo_flat_bm25.json"
+    ],
+    "exit_code": 0,
+    "elapsed_sec": 6.223465919494629
+  },
+  {
+    "name": "perltqa_en_v2_window_bm25",
+    "command": [
+      "/Users/thomasdifiore/memoria/benchmarks/perltqa_bench.py",
+      "--memory-data",
+      "benchmarks/data/perltmem_en_v2.json",
+      "--qa-data",
+      "benchmarks/data/perltqa_en_v2.json",
+      "--retriever",
+      "window-bm25",
+      "--output",
+      "/Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/perltqa_en_v2_window_bm25.json"
+    ],
+    "exit_code": 0,
+    "elapsed_sec": 69.37831687927246
+  }
+]

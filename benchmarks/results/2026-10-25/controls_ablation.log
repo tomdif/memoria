@@ -1,0 +1,40 @@
+scored rows: 419
+
+Loading weights:   0%|          | 0/201 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 201/201 [00:00<00:00, 6605.10it/s]
+[1mBertForSequenceClassification LOAD REPORT[0m from: cross-encoder/ms-marco-MiniLM-L-12-v2
+Key                          | Status     |  |
+-----------------------------+------------+--+-
+bert.embeddings.position_ids | UNEXPECTED |  |
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 103/103 [00:00<00:00, 6948.23it/s]
+[1mBertModel LOAD REPORT[0m from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  |
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  |
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+  100/419 (3.87 q/s)  blend-only:R-all@5=0.960  exp-only:R-all@5=0.940  exp+blend:R-all@5=0.970
+  200/419 (3.43 q/s)  blend-only:R-all@5=0.940  exp-only:R-all@5=0.920  exp+blend:R-all@5=0.960
+  300/419 (2.90 q/s)  blend-only:R-all@5=0.920  exp-only:R-all@5=0.883  exp+blend:R-all@5=0.930
+  400/419 (2.74 q/s)  blend-only:R-all@5=0.932  exp-only:R-all@5=0.900  exp+blend:R-all@5=0.940
+
+arm           R-any@5  R-all@5   NDCG@5  R-any@10  R-all@10  NDCG@10
+blend-only      98.1%    93.6%   0.9380     99.3%     96.7%   0.9457
+exp-only        96.9%    90.2%   0.9130     98.6%     96.2%   0.9251
+exp+blend       98.1%    94.3%   0.9414     99.0%     97.1%   0.9478
+reference: hybrid-ce-dual 96.9/90.5/0.9137/98.6/95.9/0.9250 ; memoria audited 98.1/94.3/0.9414/99.0/97.1/0.9478
+
+by type — exp+blend (memoria replication):
+  knowledge-update               R-all@5=1.000 R-all@10=1.000 NDCG@10=0.989
+  multi-session                  R-all@5=0.942 R-all@10=0.975 NDCG@10=0.959
+  single-session-assistant       R-all@5=1.000 R-all@10=1.000 NDCG@10=1.000
+  single-session-preference      R-all@5=0.967 R-all@10=0.967 NDCG@10=0.909
+  single-session-user            R-all@5=1.000 R-all@10=1.000 NDCG@10=0.994
+  temporal-reasoning             R-all@5=0.874 R-all@10=0.937 NDCG@10=0.898
+saved /Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/controls_ablation.json (155s)

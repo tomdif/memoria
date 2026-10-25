@@ -1,0 +1,879 @@
+{
+  "retrieval": {
+    "longmemeval_s_balanced.json": {
+      "recall_any@5": {
+        "previous": 0.9809069212410502,
+        "rerun": 0.9809069212410502,
+        "delta": 0.0
+      },
+      "recall_all@5": {
+        "previous": 0.9427207637231504,
+        "rerun": 0.9427207637231504,
+        "delta": 0.0
+      },
+      "ndcg_any@5": {
+        "previous": 0.9414103291055469,
+        "rerun": 0.9414103291055469,
+        "delta": 0.0
+      },
+      "recall_any@10": {
+        "previous": 0.9904534606205251,
+        "rerun": 0.9904534606205251,
+        "delta": 0.0
+      },
+      "recall_all@10": {
+        "previous": 0.9713603818615751,
+        "rerun": 0.9713603818615751,
+        "delta": 0.0
+      },
+      "ndcg_any@10": {
+        "previous": 0.9477745561727375,
+        "rerun": 0.9477745561727375,
+        "delta": 0.0
+      }
+    },
+    "longmemeval_s_flat_bm25.json": {
+      "recall_any@5": {
+        "previous": 0.8878281622911695,
+        "rerun": 0.8878281622911695,
+        "delta": 0.0
+      },
+      "recall_all@5": {
+        "previous": 0.7422434367541766,
+        "rerun": 0.7422434367541766,
+        "delta": 0.0
+      },
+      "ndcg_any@5": {
+        "previous": 0.7722421310938673,
+        "rerun": 0.7722421310938673,
+        "delta": 0.0
+      },
+      "recall_any@10": {
+        "previous": 0.9307875894988067,
+        "rerun": 0.9307875894988067,
+        "delta": 0.0
+      },
+      "recall_all@10": {
+        "previous": 0.8257756563245824,
+        "rerun": 0.8257756563245824,
+        "delta": 0.0
+      },
+      "ndcg_any@10": {
+        "previous": 0.7962238621589346,
+        "rerun": 0.7962238621589346,
+        "delta": 0.0
+      }
+    },
+    "longmemeval_s_minilm.json": {
+      "recall_any@5": {
+        "previous": 0.9594272076372315,
+        "rerun": 0.9594272076372315,
+        "delta": 0.0
+      },
+      "recall_all@5": {
+        "previous": 0.8544152744630071,
+        "rerun": 0.8544152744630071,
+        "delta": 0.0
+      },
+      "ndcg_any@5": {
+        "previous": 0.8615375587414972,
+        "rerun": 0.8615375587414972,
+        "delta": 0.0
+      },
+      "recall_any@10": {
+        "previous": 0.9809069212410502,
+        "rerun": 0.9809069212410502,
+        "delta": 0.0
+      },
+      "recall_all@10": {
+        "previous": 0.9379474940334129,
+        "rerun": 0.9379474940334129,
+        "delta": 0.0
+      },
+      "ndcg_any@10": {
+        "previous": 0.8784904690004779,
+        "rerun": 0.8784904690004779,
+        "delta": 0.0
+      }
+    },
+    "locomo_memoria_windowed.json": {
+      "recall_any@5": {
+        "previous": 0.9010416666666666,
+        "rerun": 0.9010416666666666,
+        "delta": 0.0
+      },
+      "recall_all@5": {
+        "previous": 0.783203125,
+        "rerun": 0.783203125,
+        "delta": 0.0
+      },
+      "ndcg_any@5": {
+        "previous": 0.7819656561152883,
+        "rerun": 0.7819656561152883,
+        "delta": 0.0
+      },
+      "recall_any@10": {
+        "previous": 0.9674479166666666,
+        "rerun": 0.9674479166666666,
+        "delta": 0.0
+      },
+      "recall_all@10": {
+        "previous": 0.875,
+        "rerun": 0.875,
+        "delta": 0.0
+      },
+      "ndcg_any@10": {
+        "previous": 0.8119842695154108,
+        "rerun": 0.8119842695154108,
+        "delta": 0.0
+      }
+    },
+    "locomo_memoria_legacy.json": {
+      "recall_any@5": {
+        "previous": 0.6236979166666666,
+        "rerun": 0.6236979166666666,
+        "delta": 0.0
+      },
+      "recall_all@5": {
+        "previous": 0.5091145833333334,
+        "rerun": 0.5091145833333334,
+        "delta": 0.0
+      },
+      "ndcg_any@5": {
+        "previous": 0.48256580441407665,
+        "rerun": 0.48256580441407665,
+        "delta": 0.0
+      },
+      "recall_any@10": {
+        "previous": 0.802734375,
+        "rerun": 0.802734375,
+        "delta": 0.0
+      },
+      "recall_all@10": {
+        "previous": 0.68359375,
+        "rerun": 0.68359375,
+        "delta": 0.0
+      },
+      "ndcg_any@10": {
+        "previous": 0.5458913310500758,
+        "rerun": 0.5458913310500758,
+        "delta": 0.0
+      }
+    },
+    "locomo_flat_bm25.json": {
+      "recall_any@5": {
+        "previous": 0.7434895833333334,
+        "rerun": 0.7434895833333334,
+        "delta": 0.0
+      },
+      "recall_all@5": {
+        "previous": 0.6223958333333334,
+        "rerun": 0.6223958333333334,
+        "delta": 0.0
+      },
+      "ndcg_any@5": {
+        "previous": 0.61825483342451,
+        "rerun": 0.61825483342451,
+        "delta": 0.0
+      },
+      "recall_any@10": {
+        "previous": 0.8658854166666666,
+        "rerun": 0.8658854166666666,
+        "delta": 0.0
+      },
+      "recall_all@10": {
+        "previous": 0.7330729166666666,
+        "rerun": 0.7330729166666666,
+        "delta": 0.0
+      },
+      "ndcg_any@10": {
+        "previous": 0.6610230879956226,
+        "rerun": 0.6610230879956226,
+        "delta": 0.0
+      }
+    },
+    "locomo_minilm.json": {
+      "recall_any@5": {
+        "previous": 0.52734375,
+        "rerun": 0.52734375,
+        "delta": 0.0
+      },
+      "recall_all@5": {
+        "previous": 0.4147135416666667,
+        "rerun": 0.4147135416666667,
+        "delta": 0.0
+      },
+      "ndcg_any@5": {
+        "previous": 0.40806191744559656,
+        "rerun": 0.40806191744559656,
+        "delta": 0.0
+      },
+      "recall_any@10": {
+        "previous": 0.6829427083333334,
+        "rerun": 0.6829427083333334,
+        "delta": 0.0
+      },
+      "recall_all@10": {
+        "previous": 0.5572916666666666,
+        "rerun": 0.5572916666666666,
+        "delta": 0.0
+      },
+      "ndcg_any@10": {
+        "previous": 0.46118247732620166,
+        "rerun": 0.46118247732620166,
+        "delta": 0.0
+      }
+    },
+    "perltqa_en_v2_memoria.json": {
+      "recall@1": {
+        "previous": 0.5069242406610032,
+        "rerun": 0.5069242406610032,
+        "delta": 0.0
+      },
+      "recall@2": {
+        "previous": 0.7140695915279879,
+        "rerun": 0.7140695915279879,
+        "delta": 0.0
+      },
+      "recall@3": {
+        "previous": 0.7750494588618643,
+        "rerun": 0.7750494588618643,
+        "delta": 0.0
+      },
+      "recall@5": {
+        "previous": 0.84394274409403,
+        "rerun": 0.84394274409403,
+        "delta": 0.0
+      }
+    },
+    "perltqa_en_v2_window_bm25.json": {
+      "recall@1": {
+        "previous": 0.4877225648783894,
+        "rerun": 0.4877225648783894,
+        "delta": 0.0
+      },
+      "recall@2": {
+        "previous": 0.6767136040963575,
+        "rerun": 0.6767136040963575,
+        "delta": 0.0
+      },
+      "recall@3": {
+        "previous": 0.7359478645409054,
+        "rerun": 0.7359478645409054,
+        "delta": 0.0
+      },
+      "recall@5": {
+        "previous": 0.8050738973583149,
+        "rerun": 0.8050738973583149,
+        "delta": 0.0
+      }
+    },
+    "perltqa_en_v2_window_minilm.json": {
+      "recall@1": {
+        "previous": 0.4213895030839055,
+        "rerun": 0.4213895030839055,
+        "delta": 0.0
+      },
+      "recall@2": {
+        "previous": 0.6060747119748633,
+        "rerun": 0.6060747119748633,
+        "delta": 0.0
+      },
+      "recall@3": {
+        "previous": 0.6611195158850227,
+        "rerun": 0.6611195158850227,
+        "delta": 0.0
+      },
+      "recall@5": {
+        "previous": 0.7187245432328639,
+        "rerun": 0.7187245432328639,
+        "delta": 0.0
+      }
+    }
+  },
+  "retrieval_audit": {
+    "longmemeval_s_balanced.json": {
+      "all_quality_fields_identical": true,
+      "fields_compared": 48,
+      "differences": {}
+    },
+    "longmemeval_s_flat_bm25.json": {
+      "all_quality_fields_identical": true,
+      "fields_compared": 48,
+      "differences": {}
+    },
+    "longmemeval_s_minilm.json": {
+      "all_quality_fields_identical": true,
+      "fields_compared": 48,
+      "differences": {}
+    },
+    "locomo_memoria_windowed.json": {
+      "all_quality_fields_identical": true,
+      "fields_compared": 45,
+      "differences": {}
+    },
+    "locomo_memoria_legacy.json": {
+      "all_quality_fields_identical": true,
+      "fields_compared": 45,
+      "differences": {}
+    },
+    "locomo_flat_bm25.json": {
+      "all_quality_fields_identical": true,
+      "fields_compared": 45,
+      "differences": {}
+    },
+    "locomo_minilm.json": {
+      "all_quality_fields_identical": true,
+      "fields_compared": 45,
+      "differences": {}
+    },
+    "perltqa_en_v2_memoria.json": {
+      "all_quality_fields_identical": true,
+      "fields_compared": 43,
+      "differences": {}
+    },
+    "perltqa_en_v2_window_bm25.json": {
+      "all_quality_fields_identical": true,
+      "fields_compared": 43,
+      "differences": {}
+    },
+    "perltqa_en_v2_window_minilm.json": {
+      "all_quality_fields_identical": true,
+      "fields_compared": 43,
+      "differences": {}
+    }
+  },
+  "controls": {
+    "controls_ce": {
+      "bm25-ce": {
+        "recall_any@5": {
+          "previous": 0.9427207637231504,
+          "rerun": 0.9427207637231504,
+          "delta": 0.0
+        },
+        "recall_all@5": {
+          "previous": 0.8257756563245824,
+          "rerun": 0.8257756563245824,
+          "delta": 0.0
+        },
+        "ndcg_any@5": {
+          "previous": 0.8638746163719607,
+          "rerun": 0.8638746163719607,
+          "delta": 0.0
+        },
+        "recall_any@10": {
+          "previous": 0.9498806682577565,
+          "rerun": 0.9498806682577565,
+          "delta": 0.0
+        },
+        "recall_all@10": {
+          "previous": 0.8544152744630071,
+          "rerun": 0.8544152744630071,
+          "delta": 0.0
+        },
+        "ndcg_any@10": {
+          "previous": 0.8691531555253169,
+          "rerun": 0.8691531555253169,
+          "delta": 0.0
+        }
+      },
+      "minilm-ce": {
+        "recall_any@5": {
+          "previous": 0.964200477326969,
+          "rerun": 0.964200477326969,
+          "delta": 0.0
+        },
+        "recall_all@5": {
+          "previous": 0.8758949880668258,
+          "rerun": 0.8758949880668258,
+          "delta": 0.0
+        },
+        "ndcg_any@5": {
+          "previous": 0.9001076379630646,
+          "rerun": 0.9001076379630646,
+          "delta": 0.0
+        },
+        "recall_any@10": {
+          "previous": 0.9880668257756563,
+          "rerun": 0.9880668257756563,
+          "delta": 0.0
+        },
+        "recall_all@10": {
+          "previous": 0.9522673031026253,
+          "rerun": 0.9522673031026253,
+          "delta": 0.0
+        },
+        "ndcg_any@10": {
+          "previous": 0.9162794836708417,
+          "rerun": 0.9162794836708417,
+          "delta": 0.0
+        }
+      },
+      "hybrid-ce": {
+        "recall_any@5": {
+          "previous": 0.9665871121718377,
+          "rerun": 0.9665871121718377,
+          "delta": 0.0
+        },
+        "recall_all@5": {
+          "previous": 0.8949880668257757,
+          "rerun": 0.8949880668257757,
+          "delta": 0.0
+        },
+        "ndcg_any@5": {
+          "previous": 0.9070277285215783,
+          "rerun": 0.9070277285215783,
+          "delta": 0.0
+        },
+        "recall_any@10": {
+          "previous": 0.9904534606205251,
+          "rerun": 0.9904534606205251,
+          "delta": 0.0
+        },
+        "recall_all@10": {
+          "previous": 0.9713603818615751,
+          "rerun": 0.9713603818615751,
+          "delta": 0.0
+        },
+        "ndcg_any@10": {
+          "previous": 0.923124402247033,
+          "rerun": 0.923124402247033,
+          "delta": 0.0
+        }
+      },
+      "hybrid-ce-dual": {
+        "recall_any@5": {
+          "previous": 0.9689737470167065,
+          "rerun": 0.9689737470167065,
+          "delta": 0.0
+        },
+        "recall_all@5": {
+          "previous": 0.9045346062052506,
+          "rerun": 0.9045346062052506,
+          "delta": 0.0
+        },
+        "ndcg_any@5": {
+          "previous": 0.9137440281713315,
+          "rerun": 0.9137440281713315,
+          "delta": 0.0
+        },
+        "recall_any@10": {
+          "previous": 0.9856801909307876,
+          "rerun": 0.9856801909307876,
+          "delta": 0.0
+        },
+        "recall_all@10": {
+          "previous": 0.9594272076372315,
+          "rerun": 0.9594272076372315,
+          "delta": 0.0
+        },
+        "ndcg_any@10": {
+          "previous": 0.9250058863318644,
+          "rerun": 0.9250058863318644,
+          "delta": 0.0
+        }
+      }
+    },
+    "controls_ablation": {
+      "blend-only": {
+        "recall_any@5": {
+          "previous": 0.9809069212410502,
+          "rerun": 0.9809069212410502,
+          "delta": 0.0
+        },
+        "recall_all@5": {
+          "previous": 0.9355608591885441,
+          "rerun": 0.9355608591885441,
+          "delta": 0.0
+        },
+        "ndcg_any@5": {
+          "previous": 0.9380013042477082,
+          "rerun": 0.9380013042477082,
+          "delta": 0.0
+        },
+        "recall_any@10": {
+          "previous": 0.9928400954653938,
+          "rerun": 0.9928400954653938,
+          "delta": 0.0
+        },
+        "recall_all@10": {
+          "previous": 0.9665871121718377,
+          "rerun": 0.9665871121718377,
+          "delta": 0.0
+        },
+        "ndcg_any@10": {
+          "previous": 0.9456792484010771,
+          "rerun": 0.9456792484010771,
+          "delta": 0.0
+        }
+      },
+      "exp-only": {
+        "recall_any@5": {
+          "previous": 0.9689737470167065,
+          "rerun": 0.9689737470167065,
+          "delta": 0.0
+        },
+        "recall_all@5": {
+          "previous": 0.9021479713603818,
+          "rerun": 0.9021479713603818,
+          "delta": 0.0
+        },
+        "ndcg_any@5": {
+          "previous": 0.9129936537935252,
+          "rerun": 0.9129936537935252,
+          "delta": 0.0
+        },
+        "recall_any@10": {
+          "previous": 0.9856801909307876,
+          "rerun": 0.9856801909307876,
+          "delta": 0.0
+        },
+        "recall_all@10": {
+          "previous": 0.9618138424821002,
+          "rerun": 0.9618138424821002,
+          "delta": 0.0
+        },
+        "ndcg_any@10": {
+          "previous": 0.9250547378295336,
+          "rerun": 0.9250547378295336,
+          "delta": 0.0
+        }
+      },
+      "exp+blend": {
+        "recall_any@5": {
+          "previous": 0.9809069212410502,
+          "rerun": 0.9809069212410502,
+          "delta": 0.0
+        },
+        "recall_all@5": {
+          "previous": 0.9427207637231504,
+          "rerun": 0.9427207637231504,
+          "delta": 0.0
+        },
+        "ndcg_any@5": {
+          "previous": 0.9414103291055469,
+          "rerun": 0.9414103291055469,
+          "delta": 0.0
+        },
+        "recall_any@10": {
+          "previous": 0.9904534606205251,
+          "rerun": 0.9904534606205251,
+          "delta": 0.0
+        },
+        "recall_all@10": {
+          "previous": 0.9713603818615751,
+          "rerun": 0.9713603818615751,
+          "delta": 0.0
+        },
+        "ndcg_any@10": {
+          "previous": 0.9477745561727375,
+          "rerun": 0.9477745561727375,
+          "delta": 0.0
+        }
+      }
+    }
+  },
+  "controls_audit": {
+    "controls_ce": {
+      "all_quality_fields_identical": true,
+      "fields_compared": 168,
+      "differences": {}
+    },
+    "controls_ablation": {
+      "all_quality_fields_identical": true,
+      "fields_compared": 126,
+      "differences": {}
+    }
+  },
+  "qa": {
+    "results_qa_memoria.jsonl": {
+      "complete": true,
+      "missing_question_ids": [],
+      "previous": {
+        "total": 500,
+        "unique_questions": 500,
+        "accuracy": 0.808,
+        "non_abstention_accuracy": 0.7978723404255319,
+        "abstention_accuracy": 0.9666666666666667,
+        "by_type": {
+          "knowledge-update": 0.7916666666666666,
+          "multi-session": 0.7603305785123967,
+          "single-session-assistant": 0.9642857142857143,
+          "single-session-preference": 0.6,
+          "single-session-user": 1.0,
+          "temporal-reasoning": 0.7086614173228346
+        },
+        "usage": {
+          "reader_in": 7573890,
+          "reader_out": 80303,
+          "judge_in": 215461,
+          "judge_out": 1999
+        },
+        "reader_models": [
+          "not_recorded"
+        ],
+        "judge_models": [
+          "not_recorded"
+        ],
+        "reader_truncations": 0,
+        "judge_truncations": 0
+      },
+      "rerun": {
+        "total": 500,
+        "unique_questions": 500,
+        "accuracy": 0.802,
+        "non_abstention_accuracy": 0.7914893617021277,
+        "abstention_accuracy": 0.9666666666666667,
+        "by_type": {
+          "knowledge-update": 0.7638888888888888,
+          "multi-session": 0.7520661157024794,
+          "single-session-assistant": 0.9642857142857143,
+          "single-session-preference": 0.6666666666666666,
+          "single-session-user": 1.0,
+          "temporal-reasoning": 0.6929133858267716
+        },
+        "usage": {
+          "reader_in": 7573890,
+          "reader_out": 80825,
+          "judge_in": 216195,
+          "judge_out": 1998
+        },
+        "reader_models": [
+          "claude-haiku-4-5-20251001"
+        ],
+        "judge_models": [
+          "claude-sonnet-5"
+        ],
+        "reader_truncations": 0,
+        "judge_truncations": 0
+      },
+      "paired": {
+        "previous_only_correct": 15,
+        "rerun_only_correct": 12,
+        "identical_reader_answers": 113,
+        "judge_label_changes_with_identical_answer": 0
+      }
+    },
+    "results_qa_cot_memoria.jsonl": {
+      "complete": true,
+      "missing_question_ids": [],
+      "previous": {
+        "total": 500,
+        "unique_questions": 500,
+        "accuracy": 0.86,
+        "non_abstention_accuracy": 0.8574468085106383,
+        "abstention_accuracy": 0.9,
+        "by_type": {
+          "knowledge-update": 0.875,
+          "multi-session": 0.8016528925619835,
+          "single-session-assistant": 0.9642857142857143,
+          "single-session-preference": 0.6333333333333333,
+          "single-session-user": 1.0,
+          "temporal-reasoning": 0.8346456692913385
+        },
+        "usage": {
+          "reader_in": 7588390,
+          "reader_out": 154790,
+          "judge_in": 316326,
+          "judge_out": 1997
+        },
+        "reader_models": [
+          "not_recorded"
+        ],
+        "judge_models": [
+          "not_recorded"
+        ],
+        "reader_truncations": 0,
+        "judge_truncations": 0
+      },
+      "rerun": {
+        "total": 500,
+        "unique_questions": 500,
+        "accuracy": 0.866,
+        "non_abstention_accuracy": 0.8638297872340426,
+        "abstention_accuracy": 0.9,
+        "by_type": {
+          "knowledge-update": 0.875,
+          "multi-session": 0.8016528925619835,
+          "single-session-assistant": 0.9642857142857143,
+          "single-session-preference": 0.7333333333333333,
+          "single-session-user": 1.0,
+          "temporal-reasoning": 0.8346456692913385
+        },
+        "usage": {
+          "reader_in": 7588390,
+          "reader_out": 158009,
+          "judge_in": 320695,
+          "judge_out": 1976
+        },
+        "reader_models": [
+          "claude-haiku-4-5-20251001"
+        ],
+        "judge_models": [
+          "claude-sonnet-5"
+        ],
+        "reader_truncations": 0,
+        "judge_truncations": 0
+      },
+      "paired": {
+        "previous_only_correct": 12,
+        "rerun_only_correct": 15,
+        "identical_reader_answers": 32,
+        "judge_label_changes_with_identical_answer": 0
+      }
+    },
+    "results_qa_hybrid-ce-dual.jsonl": {
+      "complete": true,
+      "missing_question_ids": [],
+      "previous": {
+        "total": 500,
+        "unique_questions": 500,
+        "accuracy": 0.756,
+        "non_abstention_accuracy": 0.7468085106382979,
+        "abstention_accuracy": 0.9,
+        "by_type": {
+          "knowledge-update": 0.6805555555555556,
+          "multi-session": 0.7107438016528925,
+          "single-session-assistant": 0.9821428571428571,
+          "single-session-preference": 0.5666666666666667,
+          "single-session-user": 0.953125,
+          "temporal-reasoning": 0.6535433070866141
+        },
+        "usage": {
+          "reader_in": 7254897,
+          "reader_out": 80568,
+          "judge_in": 215618,
+          "judge_out": 1980
+        },
+        "reader_models": [
+          "not_recorded"
+        ],
+        "judge_models": [
+          "not_recorded"
+        ],
+        "reader_truncations": 0,
+        "judge_truncations": 0
+      },
+      "rerun": {
+        "total": 500,
+        "unique_questions": 500,
+        "accuracy": 0.764,
+        "non_abstention_accuracy": 0.7553191489361702,
+        "abstention_accuracy": 0.9,
+        "by_type": {
+          "knowledge-update": 0.7361111111111112,
+          "multi-session": 0.7355371900826446,
+          "single-session-assistant": 0.9821428571428571,
+          "single-session-preference": 0.43333333333333335,
+          "single-session-user": 0.9375,
+          "temporal-reasoning": 0.6692913385826772
+        },
+        "usage": {
+          "reader_in": 7254897,
+          "reader_out": 81944,
+          "judge_in": 217753,
+          "judge_out": 1975
+        },
+        "reader_models": [
+          "claude-haiku-4-5-20251001"
+        ],
+        "judge_models": [
+          "claude-sonnet-5"
+        ],
+        "reader_truncations": 0,
+        "judge_truncations": 0
+      },
+      "paired": {
+        "previous_only_correct": 18,
+        "rerun_only_correct": 22,
+        "identical_reader_answers": 106,
+        "judge_label_changes_with_identical_answer": 0
+      }
+    },
+    "results_qa_cot_hybrid-ce-dual.jsonl": {
+      "complete": true,
+      "missing_question_ids": [],
+      "previous": {
+        "total": 500,
+        "unique_questions": 500,
+        "accuracy": 0.828,
+        "non_abstention_accuracy": 0.825531914893617,
+        "abstention_accuracy": 0.8666666666666667,
+        "by_type": {
+          "knowledge-update": 0.8472222222222222,
+          "multi-session": 0.743801652892562,
+          "single-session-assistant": 0.9821428571428571,
+          "single-session-preference": 0.7,
+          "single-session-user": 0.9375,
+          "temporal-reasoning": 0.7952755905511811
+        },
+        "usage": {
+          "reader_in": 7269397,
+          "reader_out": 156458,
+          "judge_in": 318612,
+          "judge_out": 1971
+        },
+        "reader_models": [
+          "not_recorded"
+        ],
+        "judge_models": [
+          "not_recorded"
+        ],
+        "reader_truncations": 0,
+        "judge_truncations": 0
+      },
+      "rerun": {
+        "total": 500,
+        "unique_questions": 500,
+        "accuracy": 0.838,
+        "non_abstention_accuracy": 0.8340425531914893,
+        "abstention_accuracy": 0.9,
+        "by_type": {
+          "knowledge-update": 0.8472222222222222,
+          "multi-session": 0.7603305785123967,
+          "single-session-assistant": 0.9821428571428571,
+          "single-session-preference": 0.7333333333333333,
+          "single-session-user": 0.953125,
+          "temporal-reasoning": 0.7952755905511811
+        },
+        "usage": {
+          "reader_in": 7269397,
+          "reader_out": 157734,
+          "judge_in": 320247,
+          "judge_out": 1973
+        },
+        "reader_models": [
+          "claude-haiku-4-5-20251001"
+        ],
+        "judge_models": [
+          "claude-sonnet-5"
+        ],
+        "reader_truncations": 0,
+        "judge_truncations": 1
+      },
+      "paired": {
+        "previous_only_correct": 15,
+        "rerun_only_correct": 20,
+        "identical_reader_answers": 28,
+        "judge_label_changes_with_identical_answer": 0
+      }
+    }
+  },
+  "qa_retrieval": {
+    "memoria": {
+      "total": 500,
+      "question_ids_match": true,
+      "ordered_top5_changes": 0,
+      "changed_ids": [],
+      "missing_question_ids": []
+    },
+    "hybrid-ce-dual": {
+      "total": 500,
+      "question_ids_match": true,
+      "ordered_top5_changes": 0,
+      "changed_ids": [],
+      "missing_question_ids": []
+    }
+  },
+  "missing": []
+}

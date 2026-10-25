@@ -1,0 +1,32 @@
+
+Loading weights:   0%|          | 0/201 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 201/201 [00:00<00:00, 6720.78it/s]
+[1mBertForSequenceClassification LOAD REPORT[0m from: cross-encoder/ms-marco-MiniLM-L-12-v2
+Key                          | Status     |  |
+-----------------------------+------------+--+-
+bert.embeddings.position_ids | UNEXPECTED |  |
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 103/103 [00:00<00:00, 8264.56it/s]
+[1mBertModel LOAD REPORT[0m from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  |
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  |
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+  retrieve 50/500 (2.74 q/s)
+  retrieve 100/500 (2.40 q/s)
+  retrieve 150/500 (2.29 q/s)
+  retrieve 200/500 (2.24 q/s)
+  retrieve 250/500 (2.18 q/s)
+  retrieve 300/500 (2.16 q/s)
+  retrieve 350/500 (2.15 q/s)
+  retrieve 400/500 (2.14 q/s)
+  retrieve 450/500 (2.14 q/s)
+  retrieve 500/500 (2.12 q/s)
+saved /Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/qa_retrieval_memoria.json (500 rows)
+saved /Users/thomasdifiore/memoria/benchmarks/results/2026-10-25/qa_retrieval_hybrid-ce-dual.json (500 rows)

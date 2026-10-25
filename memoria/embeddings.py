@@ -10,6 +10,8 @@ Embeddings are used for:
 from __future__ import annotations
 
 import numpy as np
+from contextlib import redirect_stdout
+import sys
 
 
 EMBEDDING_DTYPE = np.float32
@@ -30,6 +32,8 @@ def deserialize_embedding(
     if not data:
         return None
 
+    if len(data) % np.dtype(EMBEDDING_DTYPE).itemsize:
+        return None
     value = np.frombuffer(data, dtype=EMBEDDING_DTYPE)
     if expected_dimension is None or value.size == expected_dimension:
         return value
@@ -54,7 +58,10 @@ class Embedder:
     def model(self):
         if self._model is None:
             from sentence_transformers import SentenceTransformer
-            self._model = SentenceTransformer(self.model_name)
+            # Model loaders may print progress reports; keep CLI JSON and MCP
+            # stdout reserved for machine-readable responses.
+            with redirect_stdout(sys.stderr):
+                self._model = SentenceTransformer(self.model_name)
         return self._model
 
     @property
@@ -94,7 +101,7 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 def top_k_similar(query_emb: np.ndarray, corpus_embs: np.ndarray,
                   k: int = 10) -> list[tuple[int, float]]:
     """Return top-k most similar indices and scores."""
-    if corpus_embs.shape[0] == 0:
+    if corpus_embs.shape[0] == 0 or k <= 0:
         return []
     sims = cosine_similarity(query_emb, corpus_embs).flatten()
     if k >= len(sims):

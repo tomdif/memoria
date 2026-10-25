@@ -13,6 +13,8 @@ import re
 import time
 
 from .graph import KnowledgeGraph
+from .database import transaction
+from . import validation
 
 
 EXTRACTION_PROMPT = """\
@@ -63,7 +65,7 @@ def extract_from_text(text: str, llm_call) -> dict:
     response = llm_call(prompt)
 
     # Parse JSON from response, handling potential markdown fences
-    response = response.strip()
+    response = validation.text(response, "extraction response").strip()
     if response.startswith("```"):
         response = re.sub(r"^```\w*\n?", "", response)
         response = re.sub(r"\n?```$", "", response)
@@ -76,14 +78,63 @@ def extract_from_text(text: str, llm_call) -> dict:
         if match:
             result = json.loads(match.group())
         else:
-            result = {"entities": [], "facts": [], "causal": [], "decisions": []}
+            raise ValueError("extraction response must contain a JSON object")
 
-    # Validate structure
-    for key in ("entities", "facts", "causal", "decisions"):
-        if key not in result:
-            result[key] = []
+    return validate_extraction(result)
 
+
+def validate_extraction(extraction: dict) -> dict:
+    """Reject malformed provider output before any database changes."""
+    if not isinstance(extraction, dict):
+        raise ValueError("extraction must be a JSON object")
+    required = {
+        "entities": ("name",),
+        "facts": ("subject", "predicate", "object"),
+        "causal": ("cause", "effect"),
+        "decisions": ("subject", "decision"),
+    }
+    result = {}
+    for section, fields in required.items():
+        items = extraction.get(section, [])
+        if not isinstance(items, list):
+            raise ValueError(f"extraction {section} must be a list")
+        result[section] = []
+        for item in items:
+            if not isinstance(item, dict):
+                raise ValueError(f"extraction {section} entries must be objects")
+            item = dict(item)
+            # Incomplete statements are harmlessly skipped, but wrong types
+            # and invalid confidence values must never reach SQLite.
+            if any(not isinstance(item.get(field, ""), str) for field in fields):
+                raise ValueError(f"extraction {section} fields must be strings")
+            if any(not item.get(field, "").strip() for field in fields):
+                continue
+            for field in fields:
+                item[field] = validation.text(item.get(field), f"{section}.{field}").strip()
+            if "confidence" in item:
+                validation.number(item["confidence"], "confidence", minimum=0, maximum=1)
+            if "replace_existing" in item:
+                validation.boolean(item["replace_existing"], "replace_existing")
+            if section == "entities":
+                validation.text(item.get("type"), "entity type", optional=True)
+            result[section].append(item)
     return result
+
+
+def prepare_embeddings(extraction: dict, embedder) -> dict:
+    """Embed unique entity names in one batch, before acquiring a write lock."""
+    names = [item["name"] for item in extraction["entities"]]
+    names.extend(item["subject"] for item in extraction["facts"])
+    names.extend(item["subject"] for item in extraction["decisions"])
+    for item in extraction["causal"]:
+        names.extend([item["cause"], item["effect"]])
+    names = list(dict.fromkeys(names))
+    if not names or embedder is None:
+        return {}
+    vectors = embedder.embed(names)
+    if len(vectors) != len(names):
+        raise ValueError("embedder returned an unexpected number of vectors")
+    return dict(zip(names, vectors))
 
 
 def ingest_extraction(
@@ -91,11 +142,20 @@ def ingest_extraction(
     extraction: dict,
     source_ref: str | None = None,
     embedder=None,
+    embeddings: dict | None = None,
 ) -> dict:
     """Write extracted entities and relations into the knowledge graph.
 
     Returns summary of what was written: {entities_added, triples_added, contradictions}.
     """
+    extraction = validate_extraction(extraction)
+    if embeddings is None:
+        embeddings = prepare_embeddings(extraction, embedder)
+    with transaction(kg.db):
+        return _ingest_extraction(kg, extraction, source_ref, embeddings)
+
+
+def _ingest_extraction(kg, extraction, source_ref, embeddings):
     now = time.time()
     entity_map = {}  # name -> entity_id
     stats = {"entities_added": 0, "triples_added": 0, "contradictions": []}
@@ -106,12 +166,11 @@ def ingest_extraction(
         if not name:
             continue
         etype = e.get("type")
-        embedding = None
-        if embedder:
-            embedding = embedder.embed_single(name)
+        embedding = embeddings.get(name)
+        existed = bool(kg.find_entities(name, exact=True))
         eid = kg.add_entity(name, entity_type=etype, embedding=embedding)
-        entity_map[name] = eid
-        stats["entities_added"] += 1
+        entity_map[name.casefold()] = eid
+        stats["entities_added"] += int(not existed)
 
     def resolve(name: str | None) -> str | None:
         """Resolve entity name to ID, creating if needed."""
@@ -120,16 +179,14 @@ def ingest_extraction(
         name = name.strip()
         if not name:
             return None
-        if name in entity_map:
-            return entity_map[name]
-        # Try fuzzy match
-        existing = kg.find_entities(name)
-        if existing:
-            entity_map[name] = existing[0].id
-            return existing[0].id
-        # Create new
-        eid = kg.add_entity(name)
-        entity_map[name] = eid
+        key = name.casefold()
+        if key in entity_map:
+            return entity_map[key]
+        existing = kg.find_entities(name, exact=True)
+        # add_entity also backfills embeddings for previously unembedded names.
+        eid = kg.add_entity(name, embedding=embeddings.get(name))
+        entity_map[key] = eid
+        stats["entities_added"] += int(not existing)
         return eid
 
     # Phase 2: Write fact triples
@@ -145,7 +202,7 @@ def ingest_extraction(
         # Determine if object is an entity or literal value
         obj_id = None
         obj_value = None
-        if obj_name in entity_map or any(
+        if obj_name.casefold() in entity_map or any(
             e["name"].lower() == obj_name.lower()
             for e in extraction.get("entities", [])
         ):

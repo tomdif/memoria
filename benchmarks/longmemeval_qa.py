@@ -49,7 +49,8 @@ READER_MODEL = "claude-haiku-4-5-20251001"
 JUDGE_MODEL = "claude-sonnet-5"
 TOP_K = 5
 
-# $/MTok (input, output). Sonnet 5 billed at intro pricing through 2026-08-31.
+# Standard $/MTok (input, output), checked against Claude's pricing docs
+# on 2026-10-25. Usage totals are estimates, not an invoice.
 PRICES = {
     READER_MODEL: (1.00, 5.00),
     JUDGE_MODEL: (2.00, 10.00),
@@ -285,6 +286,10 @@ async def qa_one(client, sem, q, retrieved, record_f, lock, totals, cot=False):
         "hypothesis": hypothesis,
         "judge_response": judge_text,
         "autoeval_label": label,
+        "reader_model": reader_resp.model,
+        "judge_model": judge_resp.model,
+        "reader_stop_reason": reader_resp.stop_reason,
+        "judge_stop_reason": judge_resp.stop_reason,
         "usage": {
             "reader_in": reader_resp.usage.input_tokens,
             "reader_out": reader_resp.usage.output_tokens,
@@ -396,14 +401,19 @@ def stage_report(arms):
 
 
 def main():
+    global BENCH_DIR
     parser = argparse.ArgumentParser()
     parser.add_argument("--stage", choices=["retrieve", "qa", "report"], required=True)
     parser.add_argument("--arm", choices=["memoria", "hybrid-ce-dual"])
     parser.add_argument("--max", type=int, default=None)
     parser.add_argument("--concurrency", type=int, default=12)
+    parser.add_argument("--output-dir", type=Path, default=BENCH_DIR,
+                        help="Directory for fresh retrievals and resumable QA records")
     parser.add_argument("--cot", action="store_true",
                         help="Use the official CoT reading prompt")
     args = parser.parse_args()
+    BENCH_DIR = args.output_dir.resolve()
+    BENCH_DIR.mkdir(parents=True, exist_ok=True)
 
     if args.stage == "retrieve":
         stage_retrieve(args.max)
